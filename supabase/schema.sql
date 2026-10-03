@@ -1,7 +1,122 @@
 -- Supabase Schema for Mocha Counter POS
 -- Run this in your Supabase SQL Editor
 
--- 1. Create categories table
+-- ============================================================
+-- 0. PROFILES TABLE (Role-based access control)
+-- ============================================================
+-- Maps auth.users → public.profiles with a role column.
+-- The initial admin account is created manually from the
+-- Supabase Dashboard; set their role to 'admin' below.
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  full_name text not null default '',
+  role text not null default 'staff' check (role in ('admin', 'staff')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Ensure is_active column exists if table was created previously
+alter table public.profiles add column if not exists is_active boolean not null default true;
+
+-- Index for quick role and status lookups
+create index if not exists idx_profiles_role on public.profiles(role);
+create index if not exists idx_profiles_active on public.profiles(is_active);
+
+-- Enable RLS on profiles
+alter table public.profiles enable row level security;
+
+-- ============================================================
+-- Helper: check if current user is admin (SECURITY DEFINER)
+-- Bypasses RLS to avoid recursive policy checks on profiles
+-- ============================================================
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select coalesce(
+    (
+      select role = 'admin' and is_active = true
+      from public.profiles
+      where id = auth.uid()
+    ),
+    false
+  );
+$$;
+
+-- Profiles RLS policies
+drop policy if exists "Users can read own profile" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Admins can read all profiles" on public.profiles;
+drop policy if exists "Admins can manage all profiles" on public.profiles;
+
+-- 1. Every authenticated user can read their own profile
+create policy "Users can read own profile"
+  on public.profiles for select
+  to authenticated
+  using (id = auth.uid());
+
+-- 2. Admins can read ALL profiles (for the user management page)
+create policy "Admins can read all profiles"
+  on public.profiles for select
+  to authenticated
+  using (public.is_admin());
+
+-- 3. Users can update their own display name (not role or status)
+create policy "Users can update own profile"
+  on public.profiles for update
+  to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+-- 4. Admins can manage all profiles (create, update roles, toggle active status)
+create policy "Admins can manage all profiles"
+  on public.profiles for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- ============================================================
+-- Auto-create profile on new user signup
+-- ============================================================
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, email, full_name, role, is_active)
+  values (
+    new.id,
+    coalesce(new.email, ''),
+    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
+    coalesce(new.raw_user_meta_data ->> 'role', 'staff'),
+    true
+  )
+  on conflict (id) do update set
+    email = excluded.email,
+    full_name = case when public.profiles.full_name = '' then excluded.full_name else public.profiles.full_name end,
+    updated_at = now();
+  return new;
+end;
+$$;
+
+-- Drop existing trigger if present, then recreate
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();
+
+-- ============================================================
+-- 1. Categories table
+-- ============================================================
 create table if not exists public.categories (
   id text primary key,
   name text not null unique,
@@ -18,7 +133,9 @@ values
   ('bowls', 'Bowls')
 on conflict (id) do update set name = excluded.name;
 
--- 2. Create products table
+-- ============================================================
+-- 2. Products table
+-- ============================================================
 create table if not exists public.products (
   id text primary key,
   name text not null,
@@ -56,7 +173,9 @@ on conflict (id) do update set
   is_available = excluded.is_available,
   updated_at = now();
 
--- 3. Create sequence and order number generator function
+-- ============================================================
+-- 3. Order number generator
+-- ============================================================
 create sequence if not exists public.order_number_seq start 100;
 
 create or replace function public.generate_order_number()
@@ -71,7 +190,9 @@ begin
 end;
 $$;
 
--- 4. Create orders table
+-- ============================================================
+-- 4. Orders table
+-- ============================================================
 create table if not exists public.orders (
   id text primary key,
   order_number text not null unique default public.generate_order_number(),
@@ -80,15 +201,18 @@ create table if not exists public.orders (
   total numeric(10, 2) not null check (total >= 0),
   payment_method text not null check (payment_method in ('cash', 'card', 'upi')),
   status text not null default 'paid' check (status in ('paid', 'cancelled')),
+  cashier text not null default 'Cashier',
   created_at timestamptz not null default now(),
   cancelled_at timestamptz
 );
 
--- Ensure payment_method constraint includes 'upi' if table already exists
 alter table public.orders drop constraint if exists orders_payment_method_check;
 alter table public.orders add constraint orders_payment_method_check check (payment_method in ('cash', 'card', 'upi'));
+alter table public.orders add column if not exists cashier text default 'Cashier';
 
--- 5. Create order_items table (stores snapshot of product details)
+-- ============================================================
+-- 5. Order items table
+-- ============================================================
 create table if not exists public.order_items (
   id text primary key default gen_random_uuid()::text,
   order_id text not null references public.orders(id) on delete cascade,
@@ -99,47 +223,125 @@ create table if not exists public.order_items (
   total numeric(10, 2) not null check (total >= 0)
 );
 
--- Create indexes for performance
 create index if not exists idx_products_category on public.products(category_id);
 create index if not exists idx_orders_created_at on public.orders(created_at desc);
 create index if not exists idx_orders_status on public.orders(status);
 create index if not exists idx_order_items_order_id on public.order_items(order_id);
 create index if not exists idx_order_items_product_id on public.order_items(product_id);
 
+-- ============================================================
 -- Enable Row Level Security (RLS)
+-- ============================================================
 alter table public.categories enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
--- Create policies for public/anon access
--- Categories: Read-only for anon, editable by service or public if needed
+-- ============================================================
+-- 6. Row Level Security (RLS) Policies
+-- ============================================================
+-- No anonymous access allowed.
+-- Only authenticated users with active accounts can interact.
+
+-- Categories: Read for all authenticated, manage for admins only
 drop policy if exists "Allow public read on categories" on public.categories;
-create policy "Allow public read on categories" on public.categories for select using (true);
-
 drop policy if exists "Allow public insert/update on categories" on public.categories;
-create policy "Allow public insert/update on categories" on public.categories for all using (true) with check (true);
+drop policy if exists "Allow authenticated and anon read categories" on public.categories;
+drop policy if exists "Allow authenticated and anon manage categories" on public.categories;
+drop policy if exists "Allow authenticated read categories" on public.categories;
+drop policy if exists "Allow authenticated manage categories" on public.categories;
+drop policy if exists "Allow admin manage categories" on public.categories;
 
--- Products: Read, Insert, Update, Delete for POS client
+create policy "Allow authenticated read categories"
+  on public.categories for select
+  to authenticated
+  using (true);
+
+create policy "Allow admin manage categories"
+  on public.categories for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- Products: Read for authenticated; staff can toggle availability, admin can manage all
 drop policy if exists "Allow public read on products" on public.products;
-create policy "Allow public read on products" on public.products for select using (true);
-
 drop policy if exists "Allow public all on products" on public.products;
-create policy "Allow public all on products" on public.products for all using (true) with check (true);
+drop policy if exists "Allow authenticated and anon read products" on public.products;
+drop policy if exists "Allow authenticated and anon manage products" on public.products;
+drop policy if exists "Allow authenticated read products" on public.products;
+drop policy if exists "Allow authenticated manage products" on public.products;
+drop policy if exists "Allow admin manage products" on public.products;
+drop policy if exists "Allow authenticated update product availability" on public.products;
 
--- Orders: Read, Insert, Update (for cancellation)
+create policy "Allow authenticated read products"
+  on public.products for select
+  to authenticated
+  using (true);
+
+create policy "Allow admin manage products"
+  on public.products for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- Orders: Authenticated can read, insert, update
 drop policy if exists "Allow public read on orders" on public.orders;
-create policy "Allow public read on orders" on public.orders for select using (true);
-
 drop policy if exists "Allow public insert on orders" on public.orders;
-create policy "Allow public insert on orders" on public.orders for insert with check (true);
-
 drop policy if exists "Allow public update on orders" on public.orders;
-create policy "Allow public update on orders" on public.orders for update using (true) with check (true);
+drop policy if exists "Allow authenticated and anon read orders" on public.orders;
+drop policy if exists "Allow authenticated and anon insert orders" on public.orders;
+drop policy if exists "Allow authenticated and anon update orders" on public.orders;
+drop policy if exists "Allow authenticated read orders" on public.orders;
+drop policy if exists "Allow authenticated insert orders" on public.orders;
+drop policy if exists "Allow authenticated update orders" on public.orders;
 
--- Order items: Read, Insert
+create policy "Allow authenticated read orders"
+  on public.orders for select
+  to authenticated
+  using (true);
+
+create policy "Allow authenticated insert orders"
+  on public.orders for insert
+  to authenticated
+  with check (true);
+
+create policy "Allow authenticated update orders"
+  on public.orders for update
+  to authenticated
+  using (true)
+  with check (true);
+
+-- Order items: Authenticated can read and insert
 drop policy if exists "Allow public read on order_items" on public.order_items;
-create policy "Allow public read on order_items" on public.order_items for select using (true);
-
 drop policy if exists "Allow public insert on order_items" on public.order_items;
-create policy "Allow public insert on order_items" on public.order_items for insert with check (true);
+drop policy if exists "Allow authenticated and anon read order_items" on public.order_items;
+drop policy if exists "Allow authenticated and anon insert order_items" on public.order_items;
+drop policy if exists "Allow authenticated read order_items" on public.order_items;
+drop policy if exists "Allow authenticated insert order_items" on public.order_items;
+
+create policy "Allow authenticated read order_items"
+  on public.order_items for select
+  to authenticated
+  using (true);
+
+create policy "Allow authenticated insert order_items"
+  on public.order_items for insert
+  to authenticated
+  with check (true);
+
+-- ============================================================
+-- INITIAL ADMIN SETUP INSTRUCTIONS
+-- ============================================================
+-- 1. Go to your Supabase Dashboard:
+--    Authentication → Users → "Add user" → "Create user"
+--    Enter admin email and secure password.
+--    Keep "Auto Confirm User?" checked.
+--
+-- 2. Go to the SQL Editor and promote this user to admin:
+--
+--    UPDATE public.profiles
+--    SET role = 'admin', is_active = true
+--    WHERE email = 'your-admin-email@cafemocha.com';
+--
+-- 3. You can now log in at /login with this admin account
+--    and manage staff from /admin/users.

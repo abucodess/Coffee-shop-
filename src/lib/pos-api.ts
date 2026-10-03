@@ -260,7 +260,7 @@ export async function fetchOrders(): Promise<Order[]> {
       total: Number(o.total),
       payment: o.payment_method,
       status: o.status,
-      cashier: SHOP_INFO.cashierName,
+      cashier: o.cashier || SHOP_INFO.cashierName,
     };
   });
 }
@@ -300,6 +300,7 @@ export async function createOrder(
   lines: { item: MenuItem; qty: number }[],
   payment: PaymentMethod,
   discount: number = 0,
+  cashier: string = "Cashier",
 ): Promise<Order> {
   if (lines.length === 0) {
     throw new Error("Cannot create an empty order");
@@ -322,7 +323,7 @@ export async function createOrder(
 
   if (isSupabaseConfigured) {
     // 1. Insert order record
-    let { error: orderError } = await supabase.from("orders").insert({
+    const orderPayload: any = {
       id: orderId,
       order_number: orderNumber,
       subtotal: Math.round(grossSubtotal * 100) / 100,
@@ -331,21 +332,23 @@ export async function createOrder(
       payment_method: payment,
       status: "paid",
       created_at: new Date().toISOString(),
-    });
+      cashier: cashier,
+    };
+
+    let { error: orderError } = await supabase.from("orders").insert(orderPayload);
+
+    // If cashier column does not exist in older DB schema, retry without cashier column
+    if (orderError && (orderError.code === "42703" || orderError.message?.includes("cashier"))) {
+      delete orderPayload.cashier;
+      const retryResult = await supabase.from("orders").insert(orderPayload);
+      orderError = retryResult.error;
+    }
 
     // If existing database has legacy constraint only allowing ('cash', 'card'), gracefully retry
     if (orderError && (orderError.code === "23514" || orderError.message?.includes("orders_payment_method_check")) && payment === "upi") {
       console.warn("Retrying order insertion with fallback payment method for legacy database constraint...");
-      const retryResult = await supabase.from("orders").insert({
-        id: orderId,
-        order_number: orderNumber,
-        subtotal: Math.round(grossSubtotal * 100) / 100,
-        tax: 0,
-        total: total,
-        payment_method: "card",
-        status: "paid",
-        created_at: new Date().toISOString(),
-      });
+      orderPayload.payment_method = "card";
+      const retryResult = await supabase.from("orders").insert(orderPayload);
       orderError = retryResult.error;
     }
 
@@ -391,7 +394,7 @@ export async function createOrder(
     total,
     payment,
     status: "paid",
-    cashier: SHOP_INFO.cashierName,
+    cashier: cashier,
   };
 }
 

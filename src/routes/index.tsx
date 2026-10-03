@@ -10,10 +10,20 @@ import {
 } from "@/lib/pos-data";
 import { addToCart, cartTotals, clearCart, completeOrder, setQty, usePos } from "@/lib/pos-store";
 
+import { ProtectedRoute, useAuth } from "@/auth";
+
 // Lazy-load receipt modal so billing page bundle is ultra lean
 const ReceiptModal = lazy(() =>
   import("@/components/Receipt").then((m) => ({ default: m.ReceiptModal })),
 );
+
+function BillingPage() {
+  return (
+    <ProtectedRoute>
+      <Billing />
+    </ProtectedRoute>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,7 +40,7 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: Billing,
+  component: BillingPage,
 });
 
 const TAB_COLORS: Record<Category, string> = {
@@ -51,6 +61,7 @@ const TILE_BG: Record<string, string> = {
 };
 
 function Billing() {
+  const { user, profile, isAdmin } = useAuth();
   const menu = usePos((s) => s.menu);
   const cart = usePos((s) => s.cart);
   const counter = usePos((s) => s.counter);
@@ -76,7 +87,12 @@ function Billing() {
   const onComplete = async () => {
     if (cart.length === 0 || isSubmittingOrder) return;
     try {
-      const order = await completeOrder(payment);
+      // If admin, display "Cashier". Otherwise, use the staff member's name.
+      const cashierName = isAdmin
+        ? "Cashier"
+        : (profile?.full_name?.trim() || user?.email?.split("@")[0] || "Staff");
+
+      const order = await completeOrder(payment, 0, cashierName);
       if (order) {
         toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
         setReceipt(order);

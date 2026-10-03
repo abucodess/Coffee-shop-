@@ -4,6 +4,16 @@ import { toast } from "sonner";
 import { CATEGORIES, fmt, type Category, type MenuItem } from "@/lib/pos-data";
 import { deleteMenuItem, saveMenuItem, toggleAvailability, usePos } from "@/lib/pos-store";
 
+import { AdminRoute } from "@/auth";
+
+function ProtectedMenuPage() {
+  return (
+    <AdminRoute>
+      <MenuPage />
+    </AdminRoute>
+  );
+}
+
 export const Route = createFileRoute("/menu")({
   head: () => ({
     meta: [
@@ -13,7 +23,7 @@ export const Route = createFileRoute("/menu")({
       { property: "og:description", content: "Manage menu items, prices and stock availability." },
     ],
   }),
-  component: MenuPage,
+  component: ProtectedMenuPage,
 });
 
 const COLORS: MenuItem["color"][] = [

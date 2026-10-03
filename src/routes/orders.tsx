@@ -9,6 +9,16 @@ const ReceiptModal = lazy(() =>
   import("@/components/Receipt").then((m) => ({ default: m.ReceiptModal })),
 );
 
+import { ProtectedRoute } from "@/auth";
+
+function ProtectedOrdersPage() {
+  return (
+    <ProtectedRoute>
+      <OrdersPage />
+    </ProtectedRoute>
+  );
+}
+
 export const Route = createFileRoute("/orders")({
   head: () => ({
     meta: [
@@ -18,7 +28,7 @@ export const Route = createFileRoute("/orders")({
       { property: "og:description", content: "Order history, receipts and cancellations." },
     ],
   }),
-  component: OrdersPage,
+  component: ProtectedOrdersPage,
 });
 
 function OrdersPage() {
@@ -83,7 +93,7 @@ function OrdersPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-mono text-xs font-bold text-ink-soft">
-                    #{o.number} · {time} · {o.payment}
+                    #{o.number} · {time} · {o.payment} · {o.cashier || "Cashier"}
                   </div>
                   <div className="mt-1 text-sm font-bold">
                     {o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}

@@ -4,6 +4,16 @@ import { Download } from "lucide-react";
 import { fmt } from "@/lib/pos-data";
 import { usePos } from "@/lib/pos-store";
 
+import { AdminRoute } from "@/auth";
+
+function DashboardPage() {
+  return (
+    <AdminRoute>
+      <Dashboard />
+    </AdminRoute>
+  );
+}
+
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
@@ -13,7 +23,7 @@ export const Route = createFileRoute("/dashboard")({
       { property: "og:description", content: "Today's sales, orders and best-selling items." },
     ],
   }),
-  component: Dashboard,
+  component: DashboardPage,
 });
 
 function Dashboard() {

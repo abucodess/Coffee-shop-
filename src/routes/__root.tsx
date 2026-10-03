@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "../components/Header";
 import { initializePosStore } from "../lib/pos-store";
+import { AuthProvider } from "../auth";
 
 function NotFoundComponent() {
   return (
@@ -149,15 +150,17 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Header />
-      {mounted ? (
-        <Outlet />
-      ) : (
-        <div className="grid min-h-[60vh] place-items-center font-mono text-sm text-ink-soft">
-          Loading the till…
-        </div>
-      )}
-      <Toaster position="top-center" richColors />
+      <AuthProvider>
+        <Header />
+        {mounted ? (
+          <Outlet />
+        ) : (
+          <div className="grid min-h-[60vh] place-items-center font-mono text-sm text-ink-soft">
+            Loading the till…
+          </div>
+        )}
+        <Toaster position="top-center" richColors />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
