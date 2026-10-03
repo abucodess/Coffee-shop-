@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "../components/Header";
+import { initializePosStore } from "../lib/pos-store";
 
 function NotFoundComponent() {
   return (
@@ -81,15 +82,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Mocha Counter — Coffee Shop POS" },
-      { name: "description", content: "Fast, touch-friendly point of sale and billing for a small coffee shop." },
+      {
+        name: "description",
+        content: "Fast, touch-friendly point of sale and billing for a small coffee shop.",
+      },
       { property: "og:title", content: "Mocha Counter — Coffee Shop POS" },
-      { property: "og:description", content: "Fast, touch-friendly point of sale and billing for a small coffee shop." },
+      {
+        property: "og:description",
+        content: "Fast, touch-friendly point of sale and billing for a small coffee shop.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
+      { rel: "dns-prefetch", href: "https://fonts.googleapis.com" },
+      { rel: "dns-prefetch", href: "https://fonts.gstatic.com" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "preconnect", href: "https://fgbcuzzmkgwmqbkynctr.supabase.co" },
+      { rel: "dns-prefetch", href: "https://fgbcuzzmkgwmqbkynctr.supabase.co" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Space+Mono:wght@400;700&display=swap",
@@ -123,9 +134,14 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  // Till data lives in localStorage, so render the app client-side only.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    setMounted(true);
+    initializePosStore().catch((err) => {
+      console.error("Failed to initialize POS store:", err);
+    });
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

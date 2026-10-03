@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 const NAV = [
@@ -21,12 +21,13 @@ export function Header() {
   const now = useClock();
   const stamp = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const day = now.toLocaleDateString([], { weekday: "short" });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
     <header className="sticky top-0 z-30 border-b-2 border-ink/15 bg-cream/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-coffee font-mono text-sm font-bold text-cream shadow-card">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-coffee font-mono text-sm font-bold text-white shadow-card">
             MC
           </div>
           <div className="min-w-0 leading-none">
@@ -36,19 +37,30 @@ export function Header() {
         </div>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeOptions={{ exact: item.to === "/" }}
-              className="rounded-xl px-4 py-2 text-sm font-bold text-ink-soft transition-colors hover:bg-ink/5"
-              activeProps={{
-                className: "rounded-xl px-4 py-2 text-sm font-bold bg-coffee text-cream shadow-card",
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {NAV.map((item) => {
+            const isActive =
+              item.to === "/"
+                ? pathname === "/"
+                : pathname === item.to || pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                style={
+                  isActive
+                    ? { color: "#ffffff", backgroundColor: "var(--coffee)" }
+                    : undefined
+                }
+                className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                  isActive
+                    ? "bg-coffee text-white shadow-card"
+                    : "text-ink-soft hover:bg-ink/5 hover:text-coffee"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden shrink-0 rounded-xl border border-ink/15 bg-paper px-4 py-2 font-mono text-sm font-bold shadow-card sm:block">
@@ -58,17 +70,30 @@ export function Header() {
 
       {/* Mobile nav */}
       <nav className="flex gap-1 overflow-x-auto px-4 pb-2 md:hidden">
-        {NAV.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            activeOptions={{ exact: item.to === "/" }}
-            className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft"
-            activeProps={{ className: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold bg-coffee text-cream" }}
-          >
-            {item.label}
-          </Link>
-        ))}
+        {NAV.map((item) => {
+          const isActive =
+            item.to === "/"
+              ? pathname === "/"
+              : pathname === item.to || pathname.startsWith(item.to);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              style={
+                isActive
+                  ? { color: "#ffffff", backgroundColor: "var(--coffee)" }
+                  : undefined
+              }
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                isActive
+                  ? "bg-coffee text-white shadow-card"
+                  : "text-ink-soft hover:bg-ink/5"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     </header>
   );

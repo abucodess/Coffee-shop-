@@ -1,17 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CATEGORIES, fmt, type Category, type Order, type PaymentMethod } from "@/lib/pos-data";
+import {
+  CATEGORIES,
+  fmt,
+  type Category,
+  type Order,
+  type PaymentMethod,
+} from "@/lib/pos-data";
 import { addToCart, cartTotals, clearCart, completeOrder, setQty, usePos } from "@/lib/pos-store";
-import { ReceiptModal } from "@/components/Receipt";
+
+// Lazy-load receipt modal so billing page bundle is ultra lean
+const ReceiptModal = lazy(() =>
+  import("@/components/Receipt").then((m) => ({ default: m.ReceiptModal })),
+);
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Billing — Mocha Counter POS" },
-      { name: "description", content: "Fast touch-friendly billing for Mocha Counter coffee shop." },
+      {
+        name: "description",
+        content: "Fast touch-friendly billing for Mocha Counter coffee shop.",
+      },
       { property: "og:title", content: "Billing — Mocha Counter POS" },
-      { property: "og:description", content: "Fast touch-friendly billing for Mocha Counter coffee shop." },
+      {
+        property: "og:description",
+        content: "Fast touch-friendly billing for Mocha Counter coffee shop.",
+      },
     ],
   }),
   component: Billing,
@@ -38,22 +54,36 @@ function Billing() {
   const menu = usePos((s) => s.menu);
   const cart = usePos((s) => s.cart);
   const counter = usePos((s) => s.counter);
+  const menuLoading = usePos((s) => s.menuLoading);
+  const isSubmittingOrder = usePos((s) => s.isSubmittingOrder);
   const [cat, setCat] = useState<Category | "All">("All");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [receipt, setReceipt] = useState<Order | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
-  const items = cat === "All" ? menu : menu.filter((m) => m.category === cat);
-  const live = menu.filter((m) => m.available).length;
-  const { subtotal, tax, total } = cartTotals(cart, menu);
-  const count = cart.reduce((s, l) => s + l.qty, 0);
+  // Memoized O(1) product lookup map
+  const menuMap = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);
 
-  const onComplete = () => {
-    const order = completeOrder(payment);
-    if (order) {
-      toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
-      setReceipt(order);
-      setCartOpen(false);
+  // Memoized calculations to prevent unnecessary re-computations
+  const items = useMemo(
+    () => (cat === "All" ? menu : menu.filter((m) => m.category === cat)),
+    [cat, menu],
+  );
+  const live = useMemo(() => menu.filter((m) => m.available).length, [menu]);
+  const { subtotal, total } = useMemo(() => cartTotals(cart, menu), [cart, menu]);
+  const count = useMemo(() => cart.reduce((s, l) => s + l.qty, 0), [cart]);
+
+  const onComplete = async () => {
+    if (cart.length === 0 || isSubmittingOrder) return;
+    try {
+      const order = await completeOrder(payment);
+      if (order) {
+        toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
+        setReceipt(order);
+        setCartOpen(false);
+      }
+    } catch {
+      toast.error("Failed to complete order. Please try again.");
     }
   };
 
@@ -75,7 +105,7 @@ function Billing() {
           </div>
         )}
         {cart.map((l) => {
-          const item = menu.find((m) => m.id === l.itemId);
+          const item = menuMap.get(l.itemId);
           if (!item) return null;
           return (
             <div key={l.itemId} className="animate-pop flex items-center justify-between py-3.5">
@@ -110,26 +140,24 @@ function Billing() {
           <span>Subtotal</span>
           <span className="font-mono">{fmt(subtotal)}</span>
         </div>
-        <div className="mt-1.5 flex justify-between text-sm font-medium text-ink-soft">
-          <span>Tax 8%</span>
-          <span className="font-mono">{fmt(tax)}</span>
-        </div>
-        <div className="mt-3 flex items-end justify-between">
-          <span className="text-lg font-extrabold">Total</span>
+        <div className="mt-3 flex items-end justify-between border-t border-dashed border-ink/15 pt-2">
+          <span className="text-lg font-extrabold">Grand Total</span>
           <span className="font-mono text-3xl font-bold leading-none">{fmt(total)}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 px-5 pb-2">
-        {(["cash", "card"] as const).map((p) => (
+      <div className="grid grid-cols-3 gap-2 px-5 pb-2">
+        {(["cash", "card", "upi"] as const).map((p) => (
           <button
             key={p}
             onClick={() => setPayment(p)}
-            className={`press rounded-xl border-2 px-3 py-3 text-sm font-bold capitalize ${
+            className={`press rounded-xl border-2 px-2 py-2.5 text-xs font-bold uppercase tracking-wider ${
               payment === p
                 ? p === "cash"
                   ? "border-mint bg-mint text-cream shadow-card"
-                  : "border-coffee bg-coffee text-cream shadow-card"
+                  : p === "upi"
+                    ? "border-amber bg-amber text-coffee shadow-card font-extrabold"
+                    : "border-coffee bg-coffee text-cream shadow-card"
                 : "border-ink/15 bg-cream text-ink-soft"
             }`}
           >
@@ -140,14 +168,14 @@ function Billing() {
 
       <div className="px-5 pb-5">
         <button
-          disabled={cart.length === 0}
+          disabled={cart.length === 0 || isSubmittingOrder}
           onClick={onComplete}
           className="press mt-3 w-full rounded-xl bg-amber px-4 py-4 text-lg font-extrabold text-coffee shadow-card disabled:opacity-40"
         >
-          Complete order
+          {isSubmittingOrder ? "Saving order…" : "Complete order"}
         </button>
         <button
-          disabled={cart.length === 0}
+          disabled={cart.length === 0 || isSubmittingOrder}
           onClick={() => {
             clearCart();
             toast("Order cleared");
@@ -167,7 +195,7 @@ function Billing() {
           <div className="mb-4 flex items-end justify-between gap-3">
             <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">New order</h1>
             <span className="shrink-0 rounded-full bg-mint-soft px-3 py-1 text-xs font-bold text-mint">
-              {live} items live
+              {menuLoading ? "Syncing menu…" : `${live} items live`}
             </span>
           </div>
 
@@ -199,7 +227,9 @@ function Billing() {
                   className={`press flex min-h-[112px] flex-col rounded-2xl border border-ink/10 ${TILE_BG[item.color]} p-4 text-left shadow-card hover:shadow-card-lg`}
                 >
                   <span className="mb-3 flex items-center justify-between">
-                    <span className="font-mono text-sm font-bold text-coffee">{fmt(item.price)}</span>
+                    <span className="font-mono text-sm font-bold text-coffee">
+                      {fmt(item.price)}
+                    </span>
                     <span className="grid size-8 place-items-center rounded-full bg-coffee text-lg font-bold leading-none text-cream">
                       +
                     </span>
@@ -212,8 +242,12 @@ function Billing() {
                   key={item.id}
                   className="flex min-h-[112px] cursor-not-allowed flex-col rounded-2xl border-2 border-dashed border-ink/25 p-4 text-left"
                 >
-                  <span className="mb-3 font-mono text-sm font-bold text-ink-soft">{fmt(item.price)}</span>
-                  <span className="text-base font-bold leading-snug text-ink-soft">{item.name}</span>
+                  <span className="mb-3 font-mono text-sm font-bold text-ink-soft">
+                    {fmt(item.price)}
+                  </span>
+                  <span className="text-base font-bold leading-snug text-ink-soft">
+                    {item.name}
+                  </span>
                   <span className="mt-0.5 text-xs font-bold text-tomato">Out of stock</span>
                 </div>
               ),
@@ -235,14 +269,24 @@ function Billing() {
         </button>
       </div>
       {cartOpen && (
-        <div className="fixed inset-0 z-50 flex items-end bg-ink/40 lg:hidden" onClick={() => setCartOpen(false)}>
-          <div className="max-h-[92vh] w-full overflow-y-auto p-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-ink/40 lg:hidden"
+          onClick={() => setCartOpen(false)}
+        >
+          <div
+            className="max-h-[92vh] w-full overflow-y-auto p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
             {cartPanel}
           </div>
         </div>
       )}
 
-      {receipt && <ReceiptModal order={receipt} onClose={() => setReceipt(null)} />}
+      {receipt && (
+        <Suspense fallback={null}>
+          <ReceiptModal order={receipt} onClose={() => setReceipt(null)} />
+        </Suspense>
+      )}
     </main>
   );
 }
