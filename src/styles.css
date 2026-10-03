@@ -1,0 +1,148 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Café palette */
+  --color-cream: var(--cream);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-coffee: var(--coffee);
+  --color-amber: var(--amber);
+  --color-amber-deep: var(--amber-deep);
+  --color-tomato: var(--tomato);
+  --color-mint: var(--mint);
+  --color-coral: var(--coral);
+  --color-lemon: var(--lemon);
+  --color-lilac: var(--lilac);
+  --color-sky: var(--sky);
+  --color-mint-soft: var(--mint-soft);
+  --color-clay: var(--clay);
+
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --cream: #f6f2e9;
+  --paper: #fffdf8;
+  --ink: #2b231a;
+  --ink-soft: #6f6252;
+  --coffee: #3d2e20;
+  --amber: #e9a13b;
+  --amber-deep: #b97a1a;
+  --tomato: #d6553f;
+  --mint: #2e8f6b;
+  --coral: #f6ddd0;
+  --lemon: #f7e6bd;
+  --lilac: #e6ddf2;
+  --sky: #d5e7ee;
+  --mint-soft: #d9ecdf;
+  --clay: #efd3b8;
+
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--coffee);
+  --primary-foreground: var(--cream);
+  --secondary: var(--paper);
+  --secondary-foreground: var(--ink);
+  --muted: #ece5d6;
+  --muted-foreground: var(--ink-soft);
+  --accent: var(--amber);
+  --accent-foreground: var(--coffee);
+  --destructive: var(--tomato);
+  --destructive-foreground: var(--cream);
+  --border: color-mix(in oklab, var(--ink) 18%, transparent);
+  --input: color-mix(in oklab, var(--ink) 25%, transparent);
+  --ring: var(--amber);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-display);
+  }
+}
+
+/* Tactile card shadow — soft, professional take on the offset-shadow look */
+@utility shadow-card {
+  box-shadow: 0 1px 2px rgb(43 35 26 / 0.08), 0 4px 14px -4px rgb(43 35 26 / 0.12);
+}
+@utility shadow-card-lg {
+  box-shadow: 0 2px 4px rgb(43 35 26 / 0.08), 0 12px 32px -8px rgb(43 35 26 / 0.16);
+}
+@utility press {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+  &:active {
+    transform: translateY(1px) scale(0.99);
+  }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.94); opacity: 0.4; }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@utility animate-pop {
+  animation: pop 0.25s ease-out both;
+}
+
+/* Receipt print styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #receipt-print, #receipt-print * {
+    visibility: visible;
+  }
+  #receipt-print {
+    position: absolute;
+    inset: 0;
+    width: 72mm;
+    padding: 4mm;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #000;
+    background: #fff;
+  }
+}
