@@ -4,9 +4,12 @@ import { toast } from "sonner";
 import { fmt, type Order } from "@/lib/pos-data";
 import { cancelOrder, usePos } from "@/lib/pos-store";
 
-// Lazy-load receipt modal
+// Lazy-load modals
 const ReceiptModal = lazy(() =>
   import("@/components/Receipt").then((m) => ({ default: m.ReceiptModal })),
+);
+const CancelOrderModal = lazy(() =>
+  import("@/components/CancelOrderModal").then((m) => ({ default: m.CancelOrderModal })),
 );
 
 import { ProtectedRoute } from "@/auth";
@@ -37,6 +40,7 @@ function OrdersPage() {
   const actionLoadingId = usePos((s) => s.actionLoadingId);
   const [filter, setFilter] = useState<"all" | "paid" | "cancelled">("all");
   const [receipt, setReceipt] = useState<Order | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
 
   // Memoize filtered orders list
   const list = useMemo(
@@ -44,13 +48,14 @@ function OrdersPage() {
     [filter, orders],
   );
 
-  const handleCancel = async (o: Order) => {
-    if (!confirm(`Cancel order ${o.number}?`)) return;
+  const confirmCancel = async (_reason?: string) => {
+    if (!cancellingOrder) return;
     try {
-      await cancelOrder(o.id);
-      toast.success(`Order ${o.number} cancelled`);
+      await cancelOrder(cancellingOrder.id);
+      toast.success(`Order ${cancellingOrder.number} cancelled`);
+      setCancellingOrder(null);
     } catch {
-      toast.error(`Failed to cancel order ${o.number}`);
+      toast.error(`Failed to cancel order ${cancellingOrder.number}`);
     }
   };
 
@@ -124,8 +129,8 @@ function OrdersPage() {
                 {o.status === "paid" && (
                   <button
                     disabled={isCancelling}
-                    onClick={() => handleCancel(o)}
-                    className="rounded-lg px-3 py-2 text-sm font-bold text-tomato hover:bg-tomato/10 disabled:opacity-50"
+                    onClick={() => setCancellingOrder(o)}
+                    className="rounded-lg px-3 py-2 text-sm font-bold text-tomato hover:bg-tomato/10 disabled:opacity-50 transition-colors"
                   >
                     {isCancelling ? "Cancelling…" : "Cancel"}
                   </button>
@@ -142,6 +147,17 @@ function OrdersPage() {
       {receipt && (
         <Suspense fallback={null}>
           <ReceiptModal order={receipt} onClose={() => setReceipt(null)} />
+        </Suspense>
+      )}
+
+      {cancellingOrder && (
+        <Suspense fallback={null}>
+          <CancelOrderModal
+            order={cancellingOrder}
+            onClose={() => setCancellingOrder(null)}
+            onConfirm={confirmCancel}
+            isCancelling={actionLoadingId === cancellingOrder.id}
+          />
         </Suspense>
       )}
     </main>

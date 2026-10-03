@@ -126,8 +126,8 @@ export async function seedInitialMenu(): Promise<MenuItem[]> {
     .upsert(productsToInsert, { onConflict: "id" })
     .select();
 
-  if (error) {
-    console.error("Error seeding initial menu:", error);
+  if (error || !data) {
+    if (error) console.error("Error seeding initial menu:", error);
     return DEFAULT_MENU;
   }
 

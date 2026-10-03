@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   CATEGORIES,
@@ -8,7 +8,15 @@ import {
   type Order,
   type PaymentMethod,
 } from "@/lib/pos-data";
-import { addToCart, cartTotals, clearCart, completeOrder, setQty, usePos } from "@/lib/pos-store";
+import {
+  addToCart,
+  cartTotals,
+  clearCart,
+  completeOrder,
+  initializePosStore,
+  setQty,
+  usePos,
+} from "@/lib/pos-store";
 
 import { ProtectedRoute, useAuth } from "@/auth";
 
@@ -71,6 +79,10 @@ function Billing() {
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [receipt, setReceipt] = useState<Order | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+
+  useEffect(() => {
+    initializePosStore(true).catch(() => {});
+  }, []);
 
   // Memoized O(1) product lookup map
   const menuMap = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);

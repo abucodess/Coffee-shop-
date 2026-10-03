@@ -9,6 +9,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { Link, Navigate } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { initializePosStore } from "@/lib/pos-store";
 
 export type UserRole = "admin" | "staff";
 
@@ -115,6 +116,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
         setLoading(false);
+
+        if (initialSession?.user) {
+          initializePosStore(true).catch((err) => {
+            console.error("Failed to sync store after session restore:", err);
+          });
+        }
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -149,6 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       setLoading(false);
+
+      if (newSession?.user) {
+        initializePosStore(true).catch((err) => {
+          console.error("Failed to sync store on auth state change:", err);
+        });
+      }
     });
 
     return () => {

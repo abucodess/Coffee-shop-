@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { CATEGORIES, fmt, type Category, type MenuItem } from "@/lib/pos-data";
 import { deleteMenuItem, saveMenuItem, toggleAvailability, usePos } from "@/lib/pos-store";
+import { DeleteItemModal } from "@/components/DeleteItemModal";
 
 import { AdminRoute } from "@/auth";
 
@@ -49,6 +51,8 @@ function MenuPage() {
   const menu = usePos((s) => s.menu);
   const menuLoading = usePos((s) => s.menuLoading);
   const [editing, setEditing] = useState<MenuItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Group items by category in a single pass O(N) with memoization
   const groupedMenu = useMemo(() => {
@@ -76,6 +80,20 @@ function MenuPage() {
       await toggleAvailability(itemId);
     } catch {
       toast.error("Failed to update availability");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteMenuItem(itemToDelete.id);
+      toast.success(`${itemToDelete.name} deleted`);
+      setItemToDelete(null);
+    } catch {
+      toast.error("Failed to delete menu item");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -132,9 +150,18 @@ function MenuPage() {
                   </button>
                   <button
                     onClick={() => setEditing(item)}
-                    className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink/5"
+                    className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink/5 transition-colors"
                   >
                     Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemToDelete(item)}
+                    className="rounded-lg p-1.5 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors"
+                    title={`Delete ${item.name}`}
+                    aria-label={`Delete ${item.name}`}
+                  >
+                    <Trash2 className="size-4" />
                   </button>
                 </div>
               ))}
@@ -148,6 +175,21 @@ function MenuPage() {
           item={editing}
           isNew={!menu.some((m) => m.id === editing.id)}
           onClose={() => setEditing(null)}
+          onDeleteRequest={(item) => {
+            setEditing(null);
+            setItemToDelete(item);
+          }}
+        />
+      )}
+
+      {itemToDelete && (
+        <DeleteItemModal
+          item={itemToDelete}
+          onClose={() => {
+            if (!isDeleting) setItemToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          isDeleting={isDeleting}
         />
       )}
     </main>
@@ -158,15 +200,16 @@ function EditModal({
   item,
   isNew,
   onClose,
+  onDeleteRequest,
 }: {
   item: MenuItem;
   isNew: boolean;
   onClose: () => void;
+  onDeleteRequest: (item: MenuItem) => void;
 }) {
   const [draft, setDraft] = useState(item);
   const [price, setPrice] = useState(item.price ? item.price.toFixed(2) : "");
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const valid = draft.name.trim() && Number(price) > 0;
   const field =
     "mt-1 w-full rounded-xl border border-ink/20 bg-cream px-3 py-2.5 font-medium outline-none focus:border-amber";
@@ -187,20 +230,6 @@ function EditModal({
       toast.error("Failed to save menu item");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm(`Delete ${item.name}?`) || deleting) return;
-    setDeleting(true);
-    try {
-      await deleteMenuItem(item.id);
-      toast.success("Item deleted");
-      onClose();
-    } catch {
-      toast.error("Failed to delete menu item");
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -269,14 +298,14 @@ function EditModal({
         <div className="flex gap-2 pt-2">
           <button
             type="submit"
-            disabled={!valid || saving || deleting}
+            disabled={!valid || saving}
             className="press flex-1 rounded-xl bg-coffee py-3 font-bold text-cream disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save"}
           </button>
           <button
             type="button"
-            disabled={saving || deleting}
+            disabled={saving}
             onClick={onClose}
             className="rounded-xl border border-ink/15 px-4 py-3 font-bold disabled:opacity-40"
           >
@@ -285,11 +314,11 @@ function EditModal({
           {!isNew && (
             <button
               type="button"
-              disabled={saving || deleting}
-              onClick={handleDelete}
-              className="rounded-xl px-3 py-3 font-bold text-tomato hover:bg-tomato/10 disabled:opacity-40"
+              disabled={saving}
+              onClick={() => onDeleteRequest(item)}
+              className="rounded-xl px-3 py-3 font-bold text-tomato hover:bg-tomato/10 disabled:opacity-40 transition-colors"
             >
-              {deleting ? "Deleting…" : "Delete"}
+              Delete
             </button>
           )}
         </div>

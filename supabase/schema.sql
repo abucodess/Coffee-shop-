@@ -330,6 +330,14 @@ create policy "Allow authenticated insert order_items"
   with check (true);
 
 -- ============================================================
+-- 7. Supabase Realtime Publication
+-- ============================================================
+-- Enables live synchronization so menu and order changes appear
+-- instantly across all cashier/staff screens without manual refresh.
+alter publication supabase_realtime add table public.products;
+alter publication supabase_realtime add table public.orders;
+
+-- ============================================================
 -- INITIAL ADMIN SETUP INSTRUCTIONS
 -- ============================================================
 -- 1. Go to your Supabase Dashboard:

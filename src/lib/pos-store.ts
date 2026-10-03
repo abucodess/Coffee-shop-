@@ -16,7 +16,7 @@ import {
   createOrder as createOrderInDb,
   cancelOrderInDb,
 } from "./pos-api";
-import { isSupabaseConfigured } from "./supabase";
+import { supabase, isSupabaseConfigured } from "./supabase";
 
 export interface PosState {
   menu: MenuItem[];
@@ -108,12 +108,76 @@ export function usePos<T>(selector: (s: PosState) => T): T {
 // ----------------------------------------------------
 // Initial Cloud Sync
 // ----------------------------------------------------
+// Initial Cloud Sync & Realtime
+// ----------------------------------------------------
 
 let hasInitialized = false;
+let realtimeChannel: any = null;
+const deletedItemIds = new Set<string>();
+let lastMutationTime = 0;
+let lastFocusFetchTime = 0;
+const FOCUS_COOLDOWN_MS = 15000;
 
-export async function initializePosStore(): Promise<void> {
-  if (hasInitialized || !isSupabaseConfigured) return;
+export function subscribeToMenuChanges() {
+  if (realtimeChannel || !isSupabaseConfigured || typeof window === "undefined") return;
+
+  try {
+    realtimeChannel = supabase
+      .channel("pos-products-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        async (payload: any) => {
+          try {
+            // Instant in-memory removal on DELETE event without re-querying stale data
+            if (payload?.eventType === "DELETE" && payload?.old?.id) {
+              const deletedId = payload.old.id;
+              deletedItemIds.add(deletedId);
+              setState({
+                menu: state.menu.filter((m) => m.id !== deletedId),
+                cart: state.cart.filter((l) => l.itemId !== deletedId),
+              });
+              return;
+            }
+
+            const freshMenu = await fetchProducts();
+            if (freshMenu) {
+              const sanitized = freshMenu.filter((m) => !deletedItemIds.has(m.id));
+              setState({ menu: sanitized });
+            }
+          } catch (err) {
+            console.error("Realtime menu update failed:", err);
+          }
+        },
+      )
+      .subscribe();
+  } catch (err) {
+    console.warn("Failed to subscribe to realtime products changes:", err);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("focus", () => {
+    const now = Date.now();
+    // Do not trigger background fetch if:
+    // 1. A mutation occurred recently (e.g. user just closed a confirm() dialog)
+    // 2. We already synced recently (within 15 seconds)
+    if (now - lastMutationTime < 5000 || now - lastFocusFetchTime < FOCUS_COOLDOWN_MS) {
+      return;
+    }
+    lastFocusFetchTime = now;
+
+    if (isSupabaseConfigured) {
+      refreshMenu().catch(() => {});
+    }
+  });
+}
+
+export async function initializePosStore(force: boolean = false): Promise<void> {
+  if ((hasInitialized && !force) || !isSupabaseConfigured) return;
   hasInitialized = true;
+
+  subscribeToMenuChanges();
 
   setState({ menuLoading: true, ordersLoading: true });
 
@@ -129,8 +193,12 @@ export async function initializePosStore(): Promise<void> {
       }),
     ]);
 
+    const cleanMenu = remoteMenu
+      ? remoteMenu.filter((m) => !deletedItemIds.has(m.id))
+      : state.menu;
+
     setState({
-      menu: remoteMenu ?? state.menu,
+      menu: cleanMenu,
       orders: remoteOrders ?? state.orders,
       menuLoading: false,
       ordersLoading: false,
@@ -251,6 +319,7 @@ export async function cancelOrder(orderId: string): Promise<void> {
 // ----------------------------------------------------
 
 export async function toggleAvailability(itemId: string): Promise<void> {
+  lastMutationTime = Date.now();
   const item = state.menu.find((m) => m.id === itemId);
   if (!item) return;
 
@@ -273,6 +342,8 @@ export async function toggleAvailability(itemId: string): Promise<void> {
 }
 
 export async function saveMenuItem(item: MenuItem): Promise<void> {
+  lastMutationTime = Date.now();
+  deletedItemIds.delete(item.id);
   const exists = state.menu.some((m) => m.id === item.id);
   const prevMenu = [...state.menu];
 
@@ -292,6 +363,8 @@ export async function saveMenuItem(item: MenuItem): Promise<void> {
 }
 
 export async function deleteMenuItem(itemId: string): Promise<void> {
+  lastMutationTime = Date.now();
+  deletedItemIds.add(itemId);
   const prevMenu = [...state.menu];
   const prevCart = [...state.cart];
 
@@ -304,7 +377,8 @@ export async function deleteMenuItem(itemId: string): Promise<void> {
   try {
     await deleteProductInDb(itemId);
   } catch (err) {
-    // Rollback
+    // Rollback on genuine failure
+    deletedItemIds.delete(itemId);
     setState({ menu: prevMenu, cart: prevCart });
     console.error("Failed to delete menu item:", err);
     throw err;
@@ -326,9 +400,13 @@ export async function refreshOrders(): Promise<void> {
 
 export async function refreshMenu(): Promise<void> {
   if (!isSupabaseConfigured) return;
+  // If a mutation was performed recently, skip background fetch to avoid clobbering optimistic state
+  if (Date.now() - lastMutationTime < 3000) return;
+
   setState({ menuLoading: true });
   try {
-    const menu = await fetchProducts();
+    const rawMenu = await fetchProducts();
+    const menu = rawMenu ? rawMenu.filter((m) => !deletedItemIds.has(m.id)) : state.menu;
     setState({ menu, menuLoading: false });
   } catch (err) {
     setState({ menuLoading: false });
