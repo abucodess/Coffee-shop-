@@ -14,6 +14,8 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
+  Trash2,
   RefreshCw,
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -56,6 +58,11 @@ function UsersManagement() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Delete User State
+  const [userToDelete, setUserToDelete] = useState<ProfileRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -157,6 +164,103 @@ function UsersManagement() {
       toast.error(err.message || "Failed to update account status.");
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    if (userToDelete.id === currentUser?.id) {
+      setDeleteError("You cannot delete your own account.");
+      return;
+    }
+
+    const remainingActiveAdmins = profiles.filter(
+      (p) => p.role === "admin" && p.is_active && p.id !== userToDelete.id,
+    ).length;
+
+    if (
+      userToDelete.role === "admin" &&
+      userToDelete.is_active &&
+      remainingActiveAdmins === 0
+    ) {
+      setDeleteError(
+        "Cannot delete this account: It is the last active administrator. Another active administrator must exist.",
+      );
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      if (!isSupabaseConfigured) {
+        // Offline / mock fallback
+        setProfiles((prev) => prev.filter((p) => p.id !== userToDelete.id));
+        toast.success(
+          `User ${userToDelete.full_name || userToDelete.email} has been permanently deleted.`,
+        );
+        setUserToDelete(null);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "delete-staff-user",
+        {
+          body: { userId: userToDelete.id },
+        },
+      );
+
+      if (error) {
+        let errorMsg = error.message;
+        try {
+          if (
+            (error as any).context &&
+            typeof (error as any).context.json === "function"
+          ) {
+            const body = await (error as any).context.json();
+            if (body?.error) {
+              errorMsg = body.error;
+            }
+          }
+        } catch {
+          // fallback
+        }
+
+        if (
+          error.message?.includes("Failed to send a request to the Edge Function") ||
+          error.message?.includes("404") ||
+          error.message?.includes("FunctionsFetchError")
+        ) {
+          errorMsg =
+            "The Supabase Edge Function 'delete-staff-user' is not yet deployed on your Supabase project. Deploy it using 'supabase functions deploy delete-staff-user'.";
+        }
+
+        setDeleteError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
+      if (data?.error) {
+        setDeleteError(data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      // Successfully deleted
+      setProfiles((prev) => prev.filter((p) => p.id !== userToDelete.id));
+      toast.success(
+        data?.message ||
+          `User ${userToDelete.full_name || userToDelete.email} has been permanently deleted.`,
+      );
+      setUserToDelete(null);
+    } catch (err: any) {
+      console.error("Delete user error:", err);
+      const msg = err.message || "Failed to delete user.";
+      setDeleteError(msg);
+      toast.error(msg);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -376,11 +480,10 @@ function UsersManagement() {
       {/* Users Table / List */}
       <div className="mt-4 overflow-hidden rounded-2xl border-2 border-ink/15 bg-paper shadow-card">
         {isLoading ? (
-          <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 p-8 text-center">
-            <Loader2 className="size-8 animate-spin text-amber-deep" />
-            <div className="font-mono text-xs font-semibold text-ink-soft">
-              Loading staff profiles…
-            </div>
+          <div className="flex min-h-[260px] items-center justify-center p-8 text-center">
+            <span className="font-mono text-sm font-bold text-ink-soft">
+              Loading...
+            </span>
           </div>
         ) : filteredProfiles.length === 0 ? (
           <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 p-8 text-center">
@@ -518,29 +621,55 @@ function UsersManagement() {
                       {/* Actions */}
                       <td className="px-5 py-4 text-right">
                         {isCurrent ? (
-                          <span className="font-mono text-xs text-ink-soft italic">
+                          <span className="font-mono text-xs italic text-ink-soft">
                             Current session
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(p)}
-                            disabled={isToggling}
-                            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-mono text-xs font-bold transition-all disabled:opacity-50 ${
-                              p.is_active
-                                ? "border-tomato/30 bg-tomato/5 text-tomato hover:bg-tomato/15"
-                                : "border-mint/30 bg-mint/5 text-mint hover:bg-mint/15"
-                            }`}
-                          >
-                            {isToggling ? (
-                              <Loader2 className="size-3 animate-spin" />
-                            ) : p.is_active ? (
-                              <UserX className="size-3" />
-                            ) : (
-                              <UserCheck className="size-3" />
-                            )}
-                            <span>{p.is_active ? "Deactivate" : "Activate"}</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Deactivate / Reactivate User */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(p)}
+                              disabled={isToggling}
+                              title={
+                                p.is_active
+                                  ? "Deactivate user"
+                                  : "Reactivate user"
+                              }
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-xs font-bold transition-all disabled:opacity-50 ${
+                                p.is_active
+                                  ? "border-amber/40 bg-amber/10 text-amber-deep hover:bg-amber/20"
+                                  : "border-mint/40 bg-mint/10 text-mint hover:bg-mint/20"
+                              }`}
+                            >
+                              {p.is_active ? (
+                                <UserX className="size-3" />
+                              ) : (
+                                <UserCheck className="size-3" />
+                              )}
+                              <span>
+                                {isToggling
+                                  ? "Updating..."
+                                  : p.is_active
+                                    ? "Deactivate"
+                                    : "Reactivate"}
+                              </span>
+                            </button>
+
+                            {/* Delete User */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setUserToDelete(p);
+                              }}
+                              title="Permanently delete user"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-tomato/30 bg-tomato/10 px-2.5 py-1.5 font-mono text-xs font-bold text-tomato transition-all hover:bg-tomato hover:text-paper active:translate-y-0.5"
+                            >
+                              <Trash2 className="size-3" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -773,6 +902,196 @@ function UsersManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Dialog */}
+      {userToDelete && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-user-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-coffee/60 p-4 backdrop-blur-xs"
+        >
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-tomato/40 bg-paper p-6 shadow-2xl">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => !isDeleting && setUserToDelete(null)}
+              disabled={isDeleting}
+              className="absolute right-5 top-5 rounded-full p-1.5 text-ink-soft transition-colors hover:bg-ink/10 hover:text-ink disabled:opacity-50"
+              aria-label="Close dialog"
+            >
+              <X className="size-5" />
+            </button>
+
+            {/* Modal Title */}
+            <div className="space-y-1 pr-6">
+              <div className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-tomato">
+                <AlertTriangle className="size-3.5" />
+                <span>Permanent Deletion</span>
+              </div>
+              <h2
+                id="delete-user-modal-title"
+                className="text-xl font-black tracking-tight text-ink"
+              >
+                Delete User Account?
+              </h2>
+              <p className="text-xs text-ink-soft">
+                Confirm whether you want to permanently remove this user account.
+              </p>
+            </div>
+
+            {/* User Details Box */}
+            <div className="mt-4 rounded-2xl border border-ink/10 bg-cream/50 p-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`grid size-10 shrink-0 place-items-center rounded-xl font-mono text-xs font-black shadow-xs ${
+                    userToDelete.role === "admin"
+                      ? "bg-coffee text-amber"
+                      : "bg-cream text-ink"
+                  }`}
+                >
+                  {(userToDelete.full_name || userToDelete.email)
+                    .charAt(0)
+                    .toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-bold text-ink">
+                      {userToDelete.full_name || "—"}
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${
+                        userToDelete.role === "admin"
+                          ? "border border-amber/40 bg-amber/15 text-amber-deep"
+                          : "border border-ink/20 bg-paper text-ink-soft"
+                      }`}
+                    >
+                      {userToDelete.role}
+                    </span>
+                  </div>
+                  <div className="truncate font-mono text-xs text-ink-soft">
+                    {userToDelete.email}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Warning Points */}
+            <div className="mt-4 space-y-2 rounded-xl border border-tomato/20 bg-tomato/5 p-3.5 text-xs text-ink">
+              <div className="flex items-start gap-2 text-tomato">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-bold text-tomato">
+                    Please note the following consequences:
+                  </p>
+                  <ul className="list-inside list-disc space-y-1 text-ink-soft">
+                    <li>
+                      <strong className="text-ink">
+                        {userToDelete.full_name || userToDelete.email}
+                      </strong>{" "}
+                      will immediately lose access to the application.
+                    </li>
+                    <li>
+                      Their Supabase Auth login and linked profile record will be permanently deleted.
+                    </li>
+                    <li>
+                      <strong className="text-tomato">
+                        This action is permanent and cannot be undone.
+                      </strong>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Data preservation reassurance */}
+            <div className="mt-3 rounded-xl border border-mint/30 bg-mint/5 p-3 text-[11px] text-ink-soft">
+              <div className="flex items-center gap-1.5 font-bold text-mint">
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                <span>Historical Data Intact</span>
+              </div>
+              <p className="mt-1 leading-relaxed">
+                Historical orders, receipts, and order-item snapshots handled by this user remain preserved in the system.
+              </p>
+            </div>
+
+            {/* Admin account protection notice */}
+            {userToDelete.role === "admin" && (() => {
+              const remainingActiveAdmins = profiles.filter(
+                (p) => p.role === "admin" && p.is_active && p.id !== userToDelete.id,
+              ).length;
+              const isLastActiveAdmin = userToDelete.is_active && remainingActiveAdmins === 0;
+
+              return (
+                <div className="mt-3">
+                  {isLastActiveAdmin ? (
+                    <div
+                      role="alert"
+                      className="flex items-start gap-2 rounded-xl border border-tomato/40 bg-tomato/15 p-3 text-xs font-semibold text-tomato"
+                    >
+                      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                      <div>
+                        Action Blocked: This is the last active administrator account.
+                        Another active administrator must exist before deleting this user.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 rounded-xl border border-amber/40 bg-amber/10 p-3 text-xs font-medium text-amber-deep">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                      <div>
+                        Admin Warning: You are deleting an administrator account.
+                        Make sure you have access to another active administrator login.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Error Banner */}
+            {deleteError && (
+              <div
+                role="alert"
+                className="mt-3 flex items-start gap-2 rounded-xl border border-tomato/30 bg-tomato/10 p-3 text-xs text-tomato"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <div className="flex-1 font-medium">{deleteError}</div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                disabled={isDeleting}
+                className="rounded-xl border border-ink/20 bg-paper px-4 py-2.5 text-xs font-bold text-ink transition-colors hover:bg-ink/5 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteUser}
+                disabled={
+                  isDeleting ||
+                  (userToDelete.role === "admin" &&
+                    userToDelete.is_active &&
+                    profiles.filter(
+                      (p) => p.role === "admin" && p.is_active && p.id !== userToDelete.id,
+                    ).length === 0)
+                }
+                className="flex items-center gap-2 rounded-xl bg-tomato px-5 py-2.5 text-xs font-bold text-paper shadow-card transition-all hover:bg-tomato/90 active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" />
+                <span>
+                  {isDeleting ? "Deleting..." : "Permanently Delete User"}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
