@@ -1,4 +1,9 @@
-export type Category = "Espresso" | "Cold" | "Pastry" | "Bowls";
+export type Category = string;
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+}
 
 export interface MenuItem {
   id: string;
@@ -78,7 +83,15 @@ export const SHOP_INFO: ShopInfo = {
   cashierName: "Staff 01",
 };
 
-export const CATEGORIES: Category[] = ["Espresso", "Cold", "Pastry", "Bowls"];
+export const DEFAULT_CATEGORY_ITEMS: CategoryItem[] = [
+  { id: "espresso", name: "Espresso" },
+  { id: "cold", name: "Cold" },
+  { id: "pastry", name: "Pastry" },
+  { id: "bowls", name: "Bowls" },
+];
+
+export const DEFAULT_CATEGORIES: Category[] = ["Espresso", "Cold", "Pastry", "Bowls"];
+export const CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 
 export const DEFAULT_MENU: MenuItem[] = [
   {

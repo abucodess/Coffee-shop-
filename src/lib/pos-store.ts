@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from "react";
 import {
   DEFAULT_MENU,
+  DEFAULT_CATEGORY_ITEMS,
   seedOrders,
   type CartLine,
+  type CategoryItem,
   type MenuItem,
   type Order,
   type PaymentMethod,
@@ -10,6 +12,9 @@ import {
 import {
   fetchProducts,
   fetchOrders,
+  fetchCategories,
+  createCategoryInDb,
+  deleteCategoryInDb,
   saveProduct,
   deleteProduct as deleteProductInDb,
   toggleProductAvailability,
@@ -20,10 +25,12 @@ import { supabase, isSupabaseConfigured } from "./supabase";
 
 export interface PosState {
   menu: MenuItem[];
+  categories: CategoryItem[];
   orders: Order[];
   cart: CartLine[];
   counter: number;
   menuLoading: boolean;
+  categoriesLoading: boolean;
   ordersLoading: boolean;
   isSubmittingOrder: boolean;
   actionLoadingId: string | null;
@@ -34,6 +41,7 @@ const STORAGE_KEY = "mocha-counter-pos-v1";
 
 function loadInitialState(): PosState {
   let menu = DEFAULT_MENU;
+  let categories: CategoryItem[] = DEFAULT_CATEGORY_ITEMS;
   let orders = isSupabaseConfigured ? [] : seedOrders(DEFAULT_MENU);
   let cart: CartLine[] = [];
   let counter = 118;
@@ -44,6 +52,9 @@ function loadInitialState(): PosState {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.menu && Array.isArray(parsed.menu)) menu = parsed.menu;
+        if (parsed.categories && Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+          categories = parsed.categories;
+        }
         if (!isSupabaseConfigured && parsed.orders && Array.isArray(parsed.orders)) {
           orders = parsed.orders;
         }
@@ -57,10 +68,12 @@ function loadInitialState(): PosState {
 
   return {
     menu,
+    categories,
     orders,
     cart,
     counter,
     menuLoading: isSupabaseConfigured,
+    categoriesLoading: isSupabaseConfigured,
     ordersLoading: isSupabaseConfigured,
     isSubmittingOrder: false,
     actionLoadingId: null,
@@ -78,6 +91,7 @@ function persistLocalCart() {
         STORAGE_KEY,
         JSON.stringify({
           menu: state.menu,
+          categories: state.categories,
           orders: isSupabaseConfigured ? [] : state.orders,
           cart: state.cart,
           counter: state.counter,
@@ -113,10 +127,45 @@ export function usePos<T>(selector: (s: PosState) => T): T {
 
 let hasInitialized = false;
 let realtimeChannel: any = null;
+let realtimeCategoriesChannel: any = null;
 const deletedItemIds = new Set<string>();
 let lastMutationTime = 0;
 let lastFocusFetchTime = 0;
 const FOCUS_COOLDOWN_MS = 15000;
+
+export function subscribeToCategoriesChanges() {
+  if (realtimeCategoriesChannel || !isSupabaseConfigured || typeof window === "undefined") return;
+
+  try {
+    realtimeCategoriesChannel = supabase
+      .channel("pos-categories-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        async (payload: any) => {
+          try {
+            if (payload?.eventType === "DELETE" && payload?.old?.id) {
+              const deletedId = payload.old.id;
+              setState({
+                categories: state.categories.filter((c) => c.id !== deletedId),
+              });
+              return;
+            }
+
+            const freshCats = await fetchCategories();
+            if (freshCats && freshCats.length > 0) {
+              setState({ categories: freshCats });
+            }
+          } catch (err) {
+            console.error("Realtime categories update failed:", err);
+          }
+        },
+      )
+      .subscribe();
+  } catch (err) {
+    console.warn("Failed to subscribe to realtime categories changes:", err);
+  }
+}
 
 export function subscribeToMenuChanges() {
   if (realtimeChannel || !isSupabaseConfigured || typeof window === "undefined") return;
@@ -169,6 +218,7 @@ if (typeof window !== "undefined") {
 
     if (isSupabaseConfigured) {
       refreshMenu().catch(() => {});
+      refreshCategories().catch(() => {});
     }
   });
 }
@@ -178,17 +228,22 @@ export async function initializePosStore(force: boolean = false): Promise<void> 
   hasInitialized = true;
 
   subscribeToMenuChanges();
+  subscribeToCategoriesChanges();
 
-  setState({ menuLoading: true, ordersLoading: true });
+  setState({ menuLoading: true, categoriesLoading: true, ordersLoading: true });
 
   try {
-    const [remoteMenu, remoteOrders] = await Promise.all([
+    const [remoteMenu, remoteOrders, remoteCategories] = await Promise.all([
       fetchProducts().catch((err) => {
         console.error("Initial products fetch failed:", err);
         return null;
       }),
       fetchOrders().catch((err) => {
         console.error("Initial orders fetch failed:", err);
+        return null;
+      }),
+      fetchCategories().catch((err) => {
+        console.error("Initial categories fetch failed:", err);
         return null;
       }),
     ]);
@@ -199,14 +254,20 @@ export async function initializePosStore(force: boolean = false): Promise<void> 
 
     setState({
       menu: cleanMenu,
+      categories:
+        remoteCategories && remoteCategories.length > 0
+          ? remoteCategories
+          : state.categories,
       orders: remoteOrders ?? state.orders,
       menuLoading: false,
+      categoriesLoading: false,
       ordersLoading: false,
     });
   } catch (err) {
     console.error("Store initialization failed:", err);
     setState({
       menuLoading: false,
+      categoriesLoading: false,
       ordersLoading: false,
       error: "Failed to sync with Supabase",
     });
@@ -346,17 +407,33 @@ export async function saveMenuItem(item: MenuItem): Promise<void> {
   deletedItemIds.delete(item.id);
   const exists = state.menu.some((m) => m.id === item.id);
   const prevMenu = [...state.menu];
+  const prevCategories = [...state.categories];
+
+  const categoryName = item.category.trim();
+  const catExists = state.categories.some(
+    (c) => c.name.toLowerCase() === categoryName.toLowerCase(),
+  );
+  const nextCategories = catExists
+    ? state.categories
+    : [
+        ...state.categories,
+        {
+          id: categoryName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          name: categoryName,
+        },
+      ];
 
   // Optimistic update
   setState({
     menu: exists ? state.menu.map((m) => (m.id === item.id ? item : m)) : [...state.menu, item],
+    categories: nextCategories,
   });
 
   try {
     await saveProduct(item);
   } catch (err) {
     // Rollback
-    setState({ menu: prevMenu });
+    setState({ menu: prevMenu, categories: prevCategories });
     console.error("Failed to save menu item:", err);
     throw err;
   }
@@ -381,6 +458,103 @@ export async function deleteMenuItem(itemId: string): Promise<void> {
     deletedItemIds.delete(itemId);
     setState({ menu: prevMenu, cart: prevCart });
     console.error("Failed to delete menu item:", err);
+    throw err;
+  }
+}
+
+// ----------------------------------------------------
+// Category Actions (Database-backed)
+// ----------------------------------------------------
+
+export async function addCategory(name: string): Promise<CategoryItem> {
+  lastMutationTime = Date.now();
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error("Category name cannot be empty");
+  }
+
+  const existing = state.categories.find(
+    (c) => c.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (existing) {
+    throw new Error(`Category "${existing.name}" already exists`);
+  }
+
+  const tempSlug =
+    trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || `cat-${Date.now()}`;
+  const tempItem: CategoryItem = { id: tempSlug, name: trimmed };
+  const prevCategories = [...state.categories];
+
+  // Optimistic update
+  setState({ categories: [...state.categories, tempItem] });
+
+  try {
+    const saved = await createCategoryInDb(trimmed);
+    setState({
+      categories: state.categories.map((c) => (c.id === tempSlug ? saved : c)),
+    });
+    return saved;
+  } catch (err) {
+    // Rollback
+    setState({ categories: prevCategories });
+    console.error("Failed to add category:", err);
+    throw err;
+  }
+}
+
+export async function deleteCategory(categoryIdOrName: string): Promise<void> {
+  lastMutationTime = Date.now();
+  const cat = state.categories.find(
+    (c) =>
+      c.id === categoryIdOrName ||
+      c.name.toLowerCase() === categoryIdOrName.toLowerCase(),
+  );
+  const catName = cat ? cat.name : categoryIdOrName;
+  const targetId = cat ? cat.id : categoryIdOrName;
+
+  // Local safety check: ensure no products are assigned to this category in memory
+  const itemsInCat = state.menu.filter(
+    (m) => m.category.toLowerCase() === catName.toLowerCase(),
+  );
+  if (itemsInCat.length > 0) {
+    const names = itemsInCat.map((m) => m.name).slice(0, 3).join(", ");
+    const more = itemsInCat.length > 3 ? ` and ${itemsInCat.length - 3} more` : "";
+    throw new Error(
+      `Cannot delete category "${catName}": ${itemsInCat.length} product${itemsInCat.length > 1 ? "s" : ""} (${names}${more}) still belong to it. Please reassign or delete them first.`,
+    );
+  }
+
+  const prevCategories = [...state.categories];
+  // Optimistic update
+  setState({
+    categories: state.categories.filter((c) => c.id !== targetId),
+  });
+
+  try {
+    await deleteCategoryInDb(targetId);
+  } catch (err) {
+    // Rollback
+    setState({ categories: prevCategories });
+    console.error("Failed to delete category:", err);
+    throw err;
+  }
+}
+
+export async function refreshCategories(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  setState({ categoriesLoading: true });
+  try {
+    const categories = await fetchCategories();
+    if (categories && categories.length > 0) {
+      setState({ categories, categoriesLoading: false });
+    } else {
+      setState({ categoriesLoading: false });
+    }
+  } catch (err) {
+    setState({ categoriesLoading: false });
     throw err;
   }
 }

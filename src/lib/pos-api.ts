@@ -9,15 +9,15 @@ import {
   SHOP_INFO,
 } from "./pos-data";
 
-// Category ID mapping helpers
-export const CATEGORY_MAP: Record<Category, string> = {
+// Category ID mapping helpers (retained for backward compatibility)
+export const CATEGORY_MAP: Record<string, string> = {
   Espresso: "espresso",
   Cold: "cold",
   Pastry: "pastry",
   Bowls: "bowls",
 };
 
-export const REVERSE_CATEGORY_MAP: Record<string, Category> = {
+export const REVERSE_CATEGORY_MAP: Record<string, string> = {
   espresso: "Espresso",
   cold: "Cold",
   pastry: "Pastry",
@@ -28,6 +28,18 @@ export interface DbCategory {
   id: string;
   name: string;
 }
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+}
+
+export const DEFAULT_CATEGORY_ITEMS: CategoryItem[] = [
+  { id: "espresso", name: "Espresso" },
+  { id: "cold", name: "Cold" },
+  { id: "pastry", name: "Pastry" },
+  { id: "bowls", name: "Bowls" },
+];
 
 export interface DbProduct {
   id: string;
@@ -62,6 +74,124 @@ export interface DbOrderItem {
 }
 
 /**
+ * Fetch all categories from Supabase
+ */
+export async function fetchCategories(): Promise<CategoryItem[]> {
+  if (!isSupabaseConfigured) return DEFAULT_CATEGORY_ITEMS;
+
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Failed to fetch categories from Supabase:", error);
+    return DEFAULT_CATEGORY_ITEMS;
+  }
+
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return DEFAULT_CATEGORY_ITEMS;
+  }
+
+  return data as CategoryItem[];
+}
+
+/**
+ * Create a new category in Supabase
+ */
+export async function createCategoryInDb(name: string): Promise<CategoryItem> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error("Category name cannot be empty");
+  }
+
+  const slug =
+    trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || `cat-${Date.now()}`;
+
+  if (!isSupabaseConfigured) {
+    return { id: slug, name: trimmed };
+  }
+
+  // Check if a category with this name or slug already exists
+  const { data: existing } = await supabase
+    .from("categories")
+    .select("id, name")
+    .or(`id.eq.${slug},name.ilike.${trimmed}`)
+    .maybeSingle();
+
+  if (existing) {
+    throw new Error(`A category named "${existing.name}" already exists`);
+  }
+
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({
+      id: slug,
+      name: trimmed,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select("id, name")
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to create category in Supabase:", error);
+    throw error || new Error("Failed to create category");
+  }
+
+  return data as CategoryItem;
+}
+
+/**
+ * Delete a category in Supabase (Guarded against orphaned products)
+ */
+export async function deleteCategoryInDb(categoryIdOrName: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
+  // Resolve category by ID or name
+  const { data: cat } = await supabase
+    .from("categories")
+    .select("id, name")
+    .or(`id.eq.${categoryIdOrName},name.ilike.${categoryIdOrName}`)
+    .maybeSingle();
+
+  const targetId = cat ? cat.id : categoryIdOrName;
+  const catName = cat ? cat.name : categoryIdOrName;
+
+  // 1. Guard check: ensure no products are assigned to this category
+  const { data: products, error: checkError } = await supabase
+    .from("products")
+    .select("id, name")
+    .eq("category_id", targetId);
+
+  if (checkError) {
+    console.error("Failed to check products for category:", checkError);
+    throw checkError;
+  }
+
+  if (products && products.length > 0) {
+    const names = products
+      .map((p) => p.name)
+      .slice(0, 3)
+      .join(", ");
+    const more = products.length > 3 ? ` and ${products.length - 3} more` : "";
+    throw new Error(
+      `Cannot delete category "${catName}": ${products.length} product${products.length > 1 ? "s" : ""} (${names}${more}) still belong to this category. Please reassign or delete these items first.`,
+    );
+  }
+
+  // 2. Perform delete
+  const { error } = await supabase.from("categories").delete().eq("id", targetId);
+  if (error) {
+    console.error("Failed to delete category:", error);
+    throw error;
+  }
+}
+
+/**
  * Fetch all categories and products from Supabase.
  * If empty and configured, seed initial DEFAULT_MENU.
  */
@@ -70,7 +200,7 @@ export async function fetchProducts(): Promise<MenuItem[]> {
 
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, name, description, price, category_id, color, is_available")
+    .select("id, name, description, price, category_id, color, is_available, categories(id, name)")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -79,16 +209,16 @@ export async function fetchProducts(): Promise<MenuItem[]> {
   }
 
   // If table is completely empty, automatically seed with DEFAULT_MENU
-  if (!products || products.length === 0) {
+  if (!products || !Array.isArray(products) || products.length === 0) {
     return await seedInitialMenu();
   }
 
-  return (products as DbProduct[]).map((p) => ({
+  return (products as any[]).map((p) => ({
     id: p.id,
     name: p.name,
     note: p.description || "",
     price: Number(p.price),
-    category: REVERSE_CATEGORY_MAP[p.category_id] || "Espresso",
+    category: p.categories?.name || p.category_id || "Espresso",
     color: p.color || "lemon",
     available: Boolean(p.is_available),
   }));
@@ -116,7 +246,7 @@ export async function seedInitialMenu(): Promise<MenuItem[]> {
     name: item.name,
     description: item.note,
     price: item.price,
-    category_id: CATEGORY_MAP[item.category] || "espresso",
+    category_id: item.category.toLowerCase(),
     color: item.color,
     is_available: item.available,
   }));
@@ -124,19 +254,19 @@ export async function seedInitialMenu(): Promise<MenuItem[]> {
   const { data, error } = await supabase
     .from("products")
     .upsert(productsToInsert, { onConflict: "id" })
-    .select();
+    .select("id, name, description, price, category_id, color, is_available, categories(id, name)");
 
-  if (error || !data) {
+  if (error || !data || !Array.isArray(data)) {
     if (error) console.error("Error seeding initial menu:", error);
     return DEFAULT_MENU;
   }
 
-  return (data as DbProduct[]).map((p) => ({
+  return (data as any[]).map((p) => ({
     id: p.id,
     name: p.name,
     note: p.description || "",
     price: Number(p.price),
-    category: REVERSE_CATEGORY_MAP[p.category_id] || "Espresso",
+    category: p.categories?.name || p.category_id || "Espresso",
     color: p.color || "lemon",
     available: Boolean(p.is_available),
   }));
@@ -148,14 +278,41 @@ export async function seedInitialMenu(): Promise<MenuItem[]> {
 export async function saveProduct(item: MenuItem): Promise<void> {
   if (!isSupabaseConfigured) return;
 
-  const categoryId = CATEGORY_MAP[item.category] || "espresso";
+  const categoryName = item.category.trim();
+  let categorySlug =
+    categoryName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "espresso";
+
+  // Check if categories table has this category; if not, ensure it exists so foreign key is satisfied
+  const { data: existingCat } = await supabase
+    .from("categories")
+    .select("id, name")
+    .or(`id.eq.${categorySlug},name.ilike.${categoryName}`)
+    .maybeSingle();
+
+  if (existingCat) {
+    categorySlug = existingCat.id;
+  } else {
+    // Upsert the new category to ensure FK satisfaction
+    await supabase.from("categories").upsert(
+      {
+        id: categorySlug,
+        name: categoryName,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
+  }
+
   const { error } = await supabase.from("products").upsert(
     {
       id: item.id,
       name: item.name,
       description: item.note,
       price: item.price,
-      category_id: categoryId,
+      category_id: categorySlug,
       color: item.color,
       is_available: item.available,
       updated_at: new Date().toISOString(),
@@ -345,8 +502,15 @@ export async function createOrder(
     }
 
     // If existing database has legacy constraint only allowing ('cash', 'card'), gracefully retry
-    if (orderError && (orderError.code === "23514" || orderError.message?.includes("orders_payment_method_check")) && payment === "upi") {
-      console.warn("Retrying order insertion with fallback payment method for legacy database constraint...");
+    if (
+      orderError &&
+      (orderError.code === "23514" ||
+        orderError.message?.includes("orders_payment_method_check")) &&
+      payment === "upi"
+    ) {
+      console.warn(
+        "Retrying order insertion with fallback payment method for legacy database constraint...",
+      );
       orderPayload.payment_method = "card";
       const retryResult = await supabase.from("orders").insert(orderPayload);
       orderError = retryResult.error;
@@ -416,4 +580,85 @@ export async function cancelOrderInDb(orderId: string): Promise<void> {
     console.error("Failed to cancel order in Supabase:", error);
     throw error;
   }
+}
+
+/**
+ * Fetch orders by date range from Supabase.
+ * If startDate and/or endDate are provided, queries only orders within range.
+ */
+export async function fetchOrdersByRange(
+  startDate?: Date | null,
+  endDate?: Date | null,
+): Promise<Order[]> {
+  if (!isSupabaseConfigured) return [];
+
+  let query = supabase
+    .from("orders")
+    .select(
+      `
+      id,
+      order_number,
+      subtotal,
+      tax,
+      total,
+      payment_method,
+      status,
+      created_at,
+      cancelled_at,
+      order_items (
+        id,
+        product_name,
+        unit_price,
+        quantity,
+        total
+      )
+    `,
+    )
+    .order("created_at", { ascending: false })
+    .limit(10000);
+
+  if (startDate) {
+    query = query.gte("created_at", startDate.toISOString());
+  }
+  if (endDate) {
+    query = query.lte("created_at", endDate.toISOString());
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Failed to fetch orders by range from Supabase:", error);
+    throw error;
+  }
+
+  return data.map((rawOrder) => {
+    const o = rawOrder as DbOrder & {
+      cashier?: string;
+      order_items?: DbOrderItem[];
+    };
+    const subtotal = Number(o.subtotal);
+    const invoiceNum = o.order_number
+      ? `MC-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
+      : undefined;
+
+    return {
+      id: o.id,
+      number: o.order_number,
+      invoiceNumber: invoiceNum,
+      createdAt: new Date(o.created_at).getTime(),
+      lines: (o.order_items || []).map((item) => ({
+        name: item.product_name,
+        price: Number(item.unit_price),
+        qty: item.quantity,
+      })),
+      subtotal,
+      tax: 0,
+      cgst: 0,
+      sgst: 0,
+      total: Number(o.total),
+      payment: o.payment_method,
+      status: o.status,
+      cashier: o.cashier || SHOP_INFO.cashierName,
+    };
+  });
 }

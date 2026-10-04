@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  CATEGORIES,
   fmt,
   type Category,
   type Order,
@@ -51,12 +50,20 @@ export const Route = createFileRoute("/")({
   component: BillingPage,
 });
 
-const TAB_COLORS: Record<Category, string> = {
+const DEFAULT_TAB_COLORS: Record<string, string> = {
   Espresso: "bg-lemon",
   Cold: "bg-sky",
   Pastry: "bg-lilac",
   Bowls: "bg-clay",
 };
+
+const PALETTE = ["bg-lemon", "bg-sky", "bg-lilac", "bg-clay", "bg-coral", "bg-mint-soft"];
+
+function getTabColor(categoryName: string, index: number): string {
+  if (categoryName === "All") return "bg-paper";
+  if (DEFAULT_TAB_COLORS[categoryName]) return DEFAULT_TAB_COLORS[categoryName];
+  return PALETTE[index % PALETTE.length];
+}
 
 const TILE_BG: Record<string, string> = {
   lemon: "bg-lemon",
@@ -71,11 +78,12 @@ const TILE_BG: Record<string, string> = {
 function Billing() {
   const { user, profile, isAdmin } = useAuth();
   const menu = usePos((s) => s.menu);
+  const categories = usePos((s) => s.categories);
   const cart = usePos((s) => s.cart);
   const counter = usePos((s) => s.counter);
   const menuLoading = usePos((s) => s.menuLoading);
   const isSubmittingOrder = usePos((s) => s.isSubmittingOrder);
-  const [cat, setCat] = useState<Category | "All">("All");
+  const [cat, setCat] = useState<string>("All");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [receipt, setReceipt] = useState<Order | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -83,6 +91,23 @@ function Billing() {
   useEffect(() => {
     initializePosStore(true).catch(() => {});
   }, []);
+
+  // Compute dynamic tabs: "All" followed by categories in store and any active item categories
+  const categoryTabs = useMemo(() => {
+    const names = new Set<string>();
+    categories.forEach((c) => names.add(c.name));
+    menu.forEach((m) => {
+      if (m.category) names.add(m.category);
+    });
+    return ["All", ...Array.from(names)];
+  }, [categories, menu]);
+
+  // If active category gets deleted, safely reset filter to "All"
+  useEffect(() => {
+    if (cat !== "All" && !categoryTabs.includes(cat)) {
+      setCat("All");
+    }
+  }, [categoryTabs, cat]);
 
   // Memoized O(1) product lookup map
   const menuMap = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);
@@ -228,7 +253,7 @@ function Billing() {
           </div>
 
           <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-            {(["All", ...CATEGORIES] as const).map((c) => {
+            {categoryTabs.map((c, i) => {
               const active = cat === c;
               return (
                 <button
@@ -237,7 +262,7 @@ function Billing() {
                   className={`press shrink-0 rounded-full px-5 py-2.5 text-sm font-bold ${
                     active
                       ? "bg-coffee text-cream shadow-card"
-                      : `${c === "All" ? "bg-paper" : TAB_COLORS[c]} text-coffee`
+                      : `${getTabColor(c, i)} text-coffee`
                   }`}
                 >
                   {c}

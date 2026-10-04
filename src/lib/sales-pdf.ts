@@ -8,9 +8,8 @@ interface SalesPdfData {
 }
 
 export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }: SalesPdfData) {
-  // Filter paid vs cancelled
+  // Only include paid/completed orders in the sales report summary
   const paidOrders = orders.filter((o) => o.status === "paid");
-  const cancelledOrders = orders.filter((o) => o.status === "cancelled");
 
   const totalSales = paidOrders.reduce((sum, o) => sum + o.total, 0);
   const totalSubtotal = paidOrders.reduce((sum, o) => sum + o.subtotal, 0);
@@ -352,8 +351,8 @@ export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }:
   </div>
 
   <div class="section-title" style="margin-top: 24px;">
-    <span>Orders History (${orders.length} orders total)</span>
-    <span class="mono" style="font-size: 11px; font-weight: normal; color: #7d7265;">${paidOrders.length} Paid · ${cancelledOrders.length} Cancelled</span>
+    <span>Completed Orders (${paidOrders.length} orders)</span>
+    <span class="mono" style="font-size: 11px; font-weight: normal; color: #7d7265;">All Completed Transactions</span>
   </div>
 
   <div class="table-container">
@@ -370,28 +369,27 @@ export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }:
       </thead>
       <tbody>
         ${
-          orders.length > 0
-            ? orders
+          paidOrders.length > 0
+            ? paidOrders
                 .map((o) => {
                   const timeStr = new Date(o.createdAt).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   });
                   const itemsSummary = o.lines.map((l) => `${l.name} (${l.qty})`).join(", ");
-                  const isPaid = o.status === "paid";
                   return `
             <tr>
               <td class="mono" style="font-weight: 700;">${o.number}</td>
               <td class="mono" style="color: #7d7265;">${timeStr}</td>
               <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${itemsSummary}</td>
               <td><span class="badge ${o.payment === "card" ? "badge-card" : "badge-cash"}">${o.payment}</span></td>
-              <td><span class="badge ${isPaid ? "badge-paid" : "badge-cancelled"}">${o.status}</span></td>
-              <td class="mono text-right" style="font-weight: 700; ${!isPaid ? "text-decoration: line-through; color: #7d7265;" : ""}">${fmt(o.total)}</td>
+              <td><span class="badge badge-paid">paid</span></td>
+              <td class="mono text-right" style="font-weight: 700;">${fmt(o.total)}</td>
             </tr>
           `;
                 })
                 .join("")
-            : `<tr><td colspan="6" style="text-align: center; color: #7d7265; padding: 20px;">No orders found for this period.</td></tr>`
+            : `<tr><td colspan="6" style="text-align: center; color: #7d7265; padding: 20px;">No completed orders found for this period.</td></tr>`
         }
       </tbody>
     </table>

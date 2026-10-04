@@ -1,11 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
-import { CATEGORIES, fmt, type Category, type MenuItem } from "@/lib/pos-data";
-import { deleteMenuItem, saveMenuItem, toggleAvailability, usePos } from "@/lib/pos-store";
+import { FolderPlus, Plus, Tag, Trash2 } from "lucide-react";
+import { fmt, type CategoryItem, type MenuItem } from "@/lib/pos-data";
+import {
+  addCategory,
+  deleteCategory,
+  deleteMenuItem,
+  saveMenuItem,
+  toggleAvailability,
+  usePos,
+} from "@/lib/pos-store";
 import { DeleteItemModal } from "@/components/DeleteItemModal";
-
+import { AddCategoryModal } from "@/components/AddCategoryModal";
+import { DeleteCategoryModal } from "@/components/DeleteCategoryModal";
 import { AdminRoute } from "@/auth";
 
 function ProtectedMenuPage() {
@@ -37,6 +45,7 @@ const COLORS: MenuItem["color"][] = [
   "sky",
   "paper",
 ];
+
 const SWATCH: Record<string, string> = {
   lemon: "bg-lemon",
   coral: "bg-coral",
@@ -49,28 +58,57 @@ const SWATCH: Record<string, string> = {
 
 function MenuPage() {
   const menu = usePos((s) => s.menu);
+  const categories = usePos((s) => s.categories);
   const menuLoading = usePos((s) => s.menuLoading);
+  const categoriesLoading = usePos((s) => s.categoriesLoading);
+
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<CategoryItem | null>(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   // Group items by category in a single pass O(N) with memoization
   const groupedMenu = useMemo(() => {
-    const map = new Map<Category, MenuItem[]>();
-    CATEGORIES.forEach((c) => map.set(c, []));
+    const map = new Map<string, MenuItem[]>();
+    // First seed all known categories
+    categories.forEach((c) => map.set(c.name, []));
+
+    // Place each menu item in its category
     menu.forEach((item) => {
       const list = map.get(item.category);
-      if (list) list.push(item);
+      if (list) {
+        list.push(item);
+      } else {
+        // If an item has a category not yet in categories list, preserve it
+        map.set(item.category, [item]);
+      }
     });
     return map;
-  }, [menu]);
+  }, [menu, categories]);
 
-  const blank = (): MenuItem => ({
+  // All category names to display (union of registered categories and any orphaned item categories)
+  const allCategorySections = useMemo(() => {
+    const list: { id: string; name: string }[] = [...categories];
+    for (const item of menu) {
+      if (!list.some((c) => c.name.toLowerCase() === item.category.toLowerCase())) {
+        list.push({
+          id: item.category.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          name: item.category,
+        });
+      }
+    }
+    return list;
+  }, [categories, menu]);
+
+  const blank = (defaultCategory?: string): MenuItem => ({
     id: `item-${Date.now()}`,
     name: "",
     note: "",
     price: 0,
-    category: "Espresso",
+    category: defaultCategory || (categories[0]?.name ?? "Espresso"),
     color: "lemon",
     available: true,
   });
@@ -83,9 +121,9 @@ function MenuPage() {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!itemToDelete || isDeleting) return;
-    setIsDeleting(true);
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete || isDeletingItem) return;
+    setIsDeletingItem(true);
     try {
       await deleteMenuItem(itemToDelete.id);
       toast.success(`${itemToDelete.name} deleted`);
@@ -93,103 +131,257 @@ function MenuPage() {
     } catch {
       toast.error("Failed to delete menu item");
     } finally {
-      setIsDeleting(false);
+      setIsDeletingItem(false);
+    }
+  };
+
+  const handleAddCategory = async (name: string) => {
+    try {
+      const created = await addCategory(name);
+      toast.success(`Category "${created.name}" created`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create category");
+      throw err;
+    }
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete || isDeletingCategory) return;
+    setIsDeletingCategory(true);
+    try {
+      await deleteCategory(categoryToDelete.id);
+      toast.success(`Category "${categoryToDelete.name}" deleted`);
+      setCategoryToDelete(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete category");
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <div className="mb-5 flex items-end justify-between gap-3">
+      {/* Header */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Menu</h1>
-          {menuLoading && (
+          <p className="mt-1 text-sm text-ink-soft">
+            Manage menu items, prices, stock availability, and food categories.
+          </p>
+          {(menuLoading || categoriesLoading) && (
             <p className="mt-1 font-mono text-xs text-ink-soft">Syncing menu with Supabase…</p>
           )}
         </div>
-        <button
-          onClick={() => setEditing(blank())}
-          className="press rounded-xl bg-amber px-5 py-3 text-sm font-extrabold text-coffee shadow-card"
-        >
-          + Add item
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsAddCategoryOpen(true)}
+            className="press flex items-center gap-2 rounded-xl border border-ink/15 bg-paper px-4 py-3 text-sm font-extrabold text-coffee shadow-card hover:bg-cream/60 transition-colors"
+          >
+            <FolderPlus className="size-4 text-coffee" />
+            <span>+ Add category</span>
+          </button>
+          <button
+            onClick={() => setEditing(blank())}
+            className="press flex items-center gap-2 rounded-xl bg-amber px-5 py-3 text-sm font-extrabold text-coffee shadow-card hover:brightness-105 transition-all"
+          >
+            <Plus className="size-4 stroke-[3]" />
+            <span>+ Add item</span>
+          </button>
+        </div>
       </div>
 
-      {CATEGORIES.map((cat) => {
-        const items = groupedMenu.get(cat) || [];
-        if (!items.length) return null;
-        return (
-          <section key={cat} className="mb-6">
-            <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">
-              {cat}
-            </h2>
-            <div className="overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-card">
-              {items.map((item, i) => (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${i ? "border-t border-ink/10" : ""}`}
+      {/* Category Pills Bar */}
+      <div className="mb-8 rounded-2xl border border-ink/10 bg-paper p-4 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Tag className="size-3.5 text-ink-soft" />
+            <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">
+              Active Categories ({categories.length})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAddCategoryOpen(true)}
+            className="text-xs font-bold text-amber hover:underline"
+          >
+            + New Category
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => {
+            const count = (groupedMenu.get(cat.name) || []).length;
+            return (
+              <div
+                key={cat.id}
+                className="group flex items-center gap-2 rounded-xl border border-ink/10 bg-cream/70 px-3 py-1.5 text-xs font-bold text-coffee"
+              >
+                <span>{cat.name}</span>
+                <span className="rounded-full bg-paper px-1.5 py-0.5 font-mono text-[10px] text-ink-soft border border-ink/10">
+                  {count}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCategoryToDelete(cat)}
+                  className="rounded-md p-1 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors opacity-75 group-hover:opacity-100"
+                  title={`Delete category "${cat.name}"`}
+                  aria-label={`Delete category ${cat.name}`}
                 >
-                  <span
-                    className={`size-8 shrink-0 rounded-lg border border-ink/10 ${SWATCH[item.color]}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={`truncate font-bold ${item.available ? "" : "text-ink-soft line-through"}`}
-                    >
-                      {item.name}
-                    </div>
-                    <div className="truncate text-xs text-ink-soft">{item.note}</div>
-                  </div>
-                  <span className="font-mono text-sm font-bold">{fmt(item.price)}</span>
-                  <button
-                    onClick={() => handleToggle(item.id)}
-                    className={`press w-28 shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
-                      item.available ? "bg-mint-soft text-mint" : "bg-tomato/15 text-tomato"
-                    }`}
-                  >
-                    {item.available ? "Available" : "Out of stock"}
-                  </button>
-                  <button
-                    onClick={() => setEditing(item)}
-                    className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink/5 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setItemToDelete(item)}
-                    className="rounded-lg p-1.5 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors"
-                    title={`Delete ${item.name}`}
-                    aria-label={`Delete ${item.name}`}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              ))}
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Category Sections */}
+      {allCategorySections.map((cat) => {
+        const items = groupedMenu.get(cat.name) || [];
+        return (
+          <section key={cat.id} className="mb-8">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <h2 className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">
+                  {cat.name}
+                </h2>
+                <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] font-bold text-ink-soft">
+                  {items.length} {items.length === 1 ? "item" : "items"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(blank(cat.name))}
+                  className="rounded-lg px-2.5 py-1 text-xs font-bold text-coffee hover:bg-ink/5 transition-colors"
+                >
+                  + Add to {cat.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategoryToDelete(cat)}
+                  className="rounded-lg p-1.5 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors"
+                  title={`Delete category "${cat.name}"`}
+                  aria-label={`Delete category ${cat.name}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
             </div>
+
+            {items.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-ink/20 bg-paper/60 p-6 text-center shadow-xs">
+                <p className="text-sm font-medium text-ink-soft">
+                  No items in <span className="font-bold text-coffee">"{cat.name}"</span> yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEditing(blank(cat.name))}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-coffee underline underline-offset-4 hover:text-amber"
+                >
+                  Add the first item to {cat.name}
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-card">
+                {items.map((item, i) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 px-4 py-3 ${i ? "border-t border-ink/10" : ""}`}
+                  >
+                    <span
+                      className={`size-8 shrink-0 rounded-lg border border-ink/10 ${
+                        SWATCH[item.color] || "bg-lemon"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className={`truncate font-bold ${
+                          item.available ? "" : "text-ink-soft line-through"
+                        }`}
+                      >
+                        {item.name}
+                      </div>
+                      <div className="truncate text-xs text-ink-soft">{item.note}</div>
+                    </div>
+                    <span className="font-mono text-sm font-bold">{fmt(item.price)}</span>
+                    <button
+                      onClick={() => handleToggle(item.id)}
+                      className={`press w-28 shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
+                        item.available ? "bg-mint-soft text-mint" : "bg-tomato/15 text-tomato"
+                      }`}
+                    >
+                      {item.available ? "Available" : "Out of stock"}
+                    </button>
+                    <button
+                      onClick={() => setEditing(item)}
+                      className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink/5 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemToDelete(item)}
+                      className="rounded-lg p-1.5 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors"
+                      title={`Delete ${item.name}`}
+                      aria-label={`Delete ${item.name}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         );
       })}
 
+      {/* Edit / New Item Modal */}
       {editing && (
         <EditModal
           item={editing}
+          categories={categories}
           isNew={!menu.some((m) => m.id === editing.id)}
           onClose={() => setEditing(null)}
           onDeleteRequest={(item) => {
             setEditing(null);
             setItemToDelete(item);
           }}
+          onOpenAddCategory={() => setIsAddCategoryOpen(true)}
         />
       )}
 
+      {/* Delete Item Modal */}
       {itemToDelete && (
         <DeleteItemModal
           item={itemToDelete}
           onClose={() => {
-            if (!isDeleting) setItemToDelete(null);
+            if (!isDeletingItem) setItemToDelete(null);
           }}
-          onConfirm={handleConfirmDelete}
-          isDeleting={isDeleting}
+          onConfirm={handleConfirmDeleteItem}
+          isDeleting={isDeletingItem}
+        />
+      )}
+
+      {/* Add Category Modal */}
+      {isAddCategoryOpen && (
+        <AddCategoryModal
+          existingCategories={categories}
+          onClose={() => setIsAddCategoryOpen(false)}
+          onAdd={handleAddCategory}
+        />
+      )}
+
+      {/* Delete Category Modal */}
+      {categoryToDelete && (
+        <DeleteCategoryModal
+          category={categoryToDelete}
+          itemsInCategory={groupedMenu.get(categoryToDelete.name) || []}
+          onClose={() => {
+            if (!isDeletingCategory) setCategoryToDelete(null);
+          }}
+          onConfirm={handleConfirmDeleteCategory}
+          isDeleting={isDeletingCategory}
         />
       )}
     </main>
@@ -198,14 +390,18 @@ function MenuPage() {
 
 function EditModal({
   item,
+  categories,
   isNew,
   onClose,
   onDeleteRequest,
+  onOpenAddCategory,
 }: {
   item: MenuItem;
+  categories: CategoryItem[];
   isNew: boolean;
   onClose: () => void;
   onDeleteRequest: (item: MenuItem) => void;
+  onOpenAddCategory: () => void;
 }) {
   const [draft, setDraft] = useState(item);
   const [price, setPrice] = useState(item.price ? item.price.toFixed(2) : "");
@@ -269,14 +465,28 @@ function EditModal({
             />
           </label>
           <label className="block text-sm font-bold">
-            Category
+            <div className="flex items-center justify-between">
+              <span>Category</span>
+              <button
+                type="button"
+                onClick={onOpenAddCategory}
+                className="text-[11px] font-bold text-amber hover:underline"
+              >
+                + New
+              </button>
+            </div>
             <select
               className={field}
               value={draft.category}
-              onChange={(e) => setDraft({ ...draft, category: e.target.value as Category })}
+              onChange={(e) => setDraft({ ...draft, category: e.target.value })}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
+              {!categories.some((c) => c.name === draft.category) && (
+                <option value={draft.category}>{draft.category}</option>
+              )}
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
               ))}
             </select>
           </label>
@@ -290,7 +500,9 @@ function EditModal({
                 key={c}
                 onClick={() => setDraft({ ...draft, color: c })}
                 aria-label={c}
-                className={`size-8 rounded-lg border-2 ${SWATCH[c]} ${draft.color === c ? "border-coffee" : "border-ink/10"}`}
+                className={`size-8 rounded-lg border-2 ${SWATCH[c]} ${
+                  draft.color === c ? "border-coffee" : "border-ink/10"
+                }`}
               />
             ))}
           </div>
