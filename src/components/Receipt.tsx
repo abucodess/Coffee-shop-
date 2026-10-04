@@ -30,9 +30,9 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
     order.payment === "upi" ? "UPI" : order.payment === "card" ? "Card" : "Cash";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-3xl border border-ink/15 bg-paper p-5 sm:p-6 shadow-card-lg"
+        className="w-full max-w-md my-auto max-h-[92vh] overflow-y-auto rounded-3xl border border-ink/15 bg-paper p-5 sm:p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Printer width selector & controls */}

@@ -287,47 +287,60 @@ function MenuPage() {
                 {items.map((item, i) => (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 px-4 py-3 ${i ? "border-t border-ink/10" : ""}`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-cream/30 ${
+                      i ? "border-t border-ink/10" : ""
+                    }`}
                   >
-                    <span
-                      className={`size-8 shrink-0 rounded-lg border border-ink/10 ${
-                        SWATCH[item.color] || "bg-lemon"
-                      }`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className={`truncate font-bold ${
-                          item.available ? "" : "text-ink-soft line-through"
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`size-8 shrink-0 rounded-lg border border-ink/10 shadow-xs ${
+                          SWATCH[item.color] || "bg-lemon"
                         }`}
-                      >
-                        {item.name}
+                      />
+                      <div className="min-w-0">
+                        <div
+                          className={`truncate text-sm font-bold sm:text-base ${
+                            item.available ? "text-ink" : "text-ink-soft line-through"
+                          }`}
+                        >
+                          {item.name}
+                        </div>
+                        {item.note && (
+                          <div className="truncate text-xs text-ink-soft">{item.note}</div>
+                        )}
                       </div>
-                      <div className="truncate text-xs text-ink-soft">{item.note}</div>
                     </div>
-                    <span className="font-mono text-sm font-bold">{fmt(item.price)}</span>
-                    <button
-                      onClick={() => handleToggle(item.id)}
-                      className={`press w-28 shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${
-                        item.available ? "bg-mint-soft text-mint" : "bg-tomato/15 text-tomato"
-                      }`}
-                    >
-                      {item.available ? "Available" : "Out of stock"}
-                    </button>
-                    <button
-                      onClick={() => setEditing(item)}
-                      className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink/5 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setItemToDelete(item)}
-                      className="rounded-lg p-1.5 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors"
-                      title={`Delete ${item.name}`}
-                      aria-label={`Delete ${item.name}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                      <span className="font-mono text-sm font-bold text-coffee">{fmt(item.price)}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(item.id)}
+                          className={`press w-28 shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+                            item.available ? "bg-mint-soft text-mint shadow-xs" : "bg-tomato/15 text-tomato shadow-xs"
+                          }`}
+                        >
+                          {item.available ? "Available" : "Out of stock"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(item)}
+                          className="press rounded-lg border border-ink/10 bg-cream/50 px-3 py-1.5 text-xs font-bold text-coffee hover:bg-cream transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setItemToDelete(item)}
+                          className="press rounded-lg p-1.5 text-ink-soft hover:text-tomato hover:bg-tomato/10 transition-colors"
+                          title={`Delete ${item.name}`}
+                          aria-label={`Delete ${item.name}`}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -430,13 +443,13 @@ function EditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto" onClick={onClose}>
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSave}
-        className="w-full max-w-md space-y-3 rounded-2xl bg-paper p-6 shadow-card-lg"
+        className="w-full max-w-md my-auto max-h-[92vh] overflow-y-auto space-y-3.5 rounded-3xl bg-paper p-6 shadow-2xl"
       >
-        <h2 className="text-xl font-extrabold">{isNew ? "New item" : "Edit item"}</h2>
+        <h2 className="text-xl font-extrabold text-coffee">{isNew ? "New item" : "Edit item"}</h2>
         <label className="block text-sm font-bold">
           Name
           <input

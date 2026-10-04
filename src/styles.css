@@ -152,6 +152,38 @@
   color: #ffffff !important;
 }
 
+@utility card-hover {
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.16s ease;
+  will-change: transform;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 6px 20px -4px rgb(43 35 26 / 0.12),
+      0 2px 6px -1px rgb(43 35 26 / 0.08);
+  }
+}
+
+@utility glass-panel {
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
 @keyframes pop {
   0% {
     transform: scale(0.94);

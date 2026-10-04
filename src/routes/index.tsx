@@ -2,6 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  Banknote,
+  CreditCard,
+  QrCode,
+  ShoppingCart,
+  Sparkles,
+  X,
+} from "lucide-react";
+import {
   fmt,
   type Category,
   type Order,
@@ -112,6 +120,13 @@ function Billing() {
   // Memoized O(1) product lookup map
   const menuMap = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);
 
+  // Memoized map of cart quantities for card badge lookup
+  const cartQtyMap = useMemo(() => {
+    const map = new Map<string, number>();
+    cart.forEach((c) => map.set(c.itemId, c.qty));
+    return map;
+  }, [cart]);
+
   // Memoized calculations to prevent unnecessary re-computations
   const items = useMemo(
     () => (cat === "All" ? menu : menu.filter((m) => m.category === cat)),
@@ -143,18 +158,34 @@ function Billing() {
   const cartPanel = (
     <div className="overflow-hidden rounded-3xl border border-ink/15 bg-paper shadow-card-lg">
       <div className="flex items-center justify-between border-b-2 border-dashed border-ink/15 px-5 py-4">
-        <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">
-          Order #A-{String(counter).padStart(3, "0")}
-        </span>
-        <span className="rounded-full bg-amber/90 px-2.5 py-1 text-[11px] font-bold text-coffee">
-          {count} {count === 1 ? "item" : "items"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">
+            Order #A-{String(counter).padStart(3, "0")}
+          </span>
+          <span className="rounded-full bg-amber/90 px-2.5 py-0.5 text-[11px] font-bold text-coffee">
+            {count} {count === 1 ? "item" : "items"}
+          </span>
+        </div>
+        {cartOpen && (
+          <button
+            type="button"
+            onClick={() => setCartOpen(false)}
+            className="rounded-full p-1 text-ink-soft hover:bg-ink/10 lg:hidden"
+            aria-label="Close cart"
+          >
+            <X className="size-5" />
+          </button>
+        )}
       </div>
 
-      <div className="max-h-[40vh] divide-y divide-dashed divide-ink/10 overflow-y-auto px-5">
+      <div className="max-h-[38vh] divide-y divide-dashed divide-ink/10 overflow-y-auto px-5 sm:max-h-[42vh]">
         {cart.length === 0 && (
-          <div className="py-10 text-center text-sm font-medium text-ink-soft">
-            Tap an item to start an order
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="grid size-12 place-items-center rounded-2xl bg-cream text-ink-soft">
+              <ShoppingCart className="size-6 text-ink-soft/60" />
+            </div>
+            <div className="mt-2 text-sm font-bold text-ink">No items in order</div>
+            <div className="text-xs text-ink-soft">Tap menu items to add them</div>
           </div>
         )}
         {cart.map((l) => {
@@ -200,21 +231,29 @@ function Billing() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 px-5 pb-2">
-        {(["cash", "card", "upi"] as const).map((p) => (
+        {(
+          [
+            { id: "cash", label: "Cash", icon: Banknote },
+            { id: "card", label: "Card", icon: CreditCard },
+            { id: "upi", label: "UPI", icon: QrCode },
+          ] as const
+        ).map(({ id, label, icon: Icon }) => (
           <button
-            key={p}
-            onClick={() => setPayment(p)}
-            className={`press rounded-xl border-2 px-2 py-2.5 text-xs font-bold uppercase tracking-wider ${
-              payment === p
-                ? p === "cash"
+            key={id}
+            type="button"
+            onClick={() => setPayment(id)}
+            className={`press flex flex-col items-center justify-center gap-1 rounded-xl border-2 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+              payment === id
+                ? id === "cash"
                   ? "border-mint bg-mint text-cream shadow-card"
-                  : p === "upi"
+                  : id === "upi"
                     ? "border-amber bg-amber text-coffee shadow-card font-extrabold"
                     : "border-coffee bg-coffee text-cream shadow-card"
-                : "border-ink/15 bg-cream text-ink-soft"
+                : "border-ink/15 bg-cream/70 text-ink-soft hover:border-ink/30 hover:bg-cream"
             }`}
           >
-            {p}
+            <Icon className="size-4 shrink-0" />
+            <span>{label}</span>
           </button>
         ))}
       </div>
@@ -223,7 +262,7 @@ function Billing() {
         <button
           disabled={cart.length === 0 || isSubmittingOrder}
           onClick={onComplete}
-          className="press mt-3 w-full rounded-xl bg-amber px-4 py-4 text-lg font-extrabold text-coffee shadow-card disabled:opacity-40"
+          className="press mt-3 w-full rounded-xl bg-amber px-4 py-4 text-lg font-extrabold text-coffee shadow-card transition-all hover:bg-amber/90 active:scale-[0.99] disabled:opacity-40"
         >
           {isSubmittingOrder ? "Saving order…" : "Complete order"}
         </button>
@@ -243,26 +282,30 @@ function Billing() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 lg:pb-6">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_384px]">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_384px] xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0">
           <div className="mb-4 flex items-end justify-between gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">New order</h1>
-            <span className="shrink-0 rounded-full bg-mint-soft px-3 py-1 text-xs font-bold text-mint">
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-coffee">New order</h1>
+              <p className="text-xs font-medium text-ink-soft sm:text-sm">Tap any item to quickly add to current bill</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-mint-soft px-3.5 py-1.5 text-xs font-bold text-mint shadow-xs">
               {menuLoading ? "Syncing menu…" : `${live} items live`}
             </span>
           </div>
 
-          <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+          <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1">
             {categoryTabs.map((c, i) => {
               const active = cat === c;
               return (
                 <button
                   key={c}
+                  type="button"
                   onClick={() => setCat(c)}
-                  className={`press shrink-0 rounded-full px-5 py-2.5 text-sm font-bold ${
+                  className={`press shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-all ${
                     active
-                      ? "bg-coffee text-cream shadow-card"
-                      : `${getTabColor(c, i)} text-coffee`
+                      ? "bg-coffee text-cream shadow-card ring-2 ring-coffee/20"
+                      : `${getTabColor(c, i)} text-coffee hover:opacity-90`
                   }`}
                 >
                   {c}
@@ -272,39 +315,63 @@ function Billing() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) =>
-              item.available ? (
+            {items.map((item) => {
+              const inCart = cartQtyMap.get(item.id) || 0;
+              return item.available ? (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => addToCart(item.id)}
-                  className={`press flex min-h-[112px] flex-col rounded-2xl border border-ink/10 ${TILE_BG[item.color]} p-4 text-left shadow-card hover:shadow-card-lg`}
+                  className={`press card-hover relative flex min-h-[116px] flex-col justify-between rounded-2xl border ${
+                    inCart > 0
+                      ? "border-coffee ring-2 ring-coffee/30 shadow-card-lg"
+                      : "border-ink/10 shadow-card hover:border-ink/20"
+                  } ${TILE_BG[item.color]} p-4 text-left transition-all`}
                 >
-                  <span className="mb-3 flex items-center justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <span className="font-mono text-sm font-bold text-coffee">
                       {fmt(item.price)}
                     </span>
-                    <span className="grid size-8 place-items-center rounded-full bg-coffee text-lg font-bold leading-none text-cream">
-                      +
+                    {inCart > 0 ? (
+                      <span className="animate-pop grid h-7 min-w-[28px] place-items-center rounded-full bg-coffee px-2 text-xs font-black tracking-wide text-cream shadow-xs">
+                        ×{inCart}
+                      </span>
+                    ) : (
+                      <span className="grid size-7 place-items-center rounded-full bg-coffee/90 text-sm font-bold leading-none text-cream shadow-xs">
+                        +
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 min-w-0">
+                    <span className="line-clamp-2 text-sm font-bold leading-snug text-ink sm:text-base">
+                      {item.name}
                     </span>
-                  </span>
-                  <span className="text-base font-bold leading-snug">{item.name}</span>
-                  <span className="mt-0.5 text-xs font-medium text-coffee/70">{item.note}</span>
+                    {item.note && (
+                      <span className="mt-0.5 block truncate text-xs font-medium text-coffee/70">
+                        {item.note}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ) : (
                 <div
                   key={item.id}
-                  className="flex min-h-[112px] cursor-not-allowed flex-col rounded-2xl border-2 border-dashed border-ink/25 p-4 text-left"
+                  className="flex min-h-[116px] cursor-not-allowed flex-col justify-between rounded-2xl border-2 border-dashed border-ink/20 bg-ink/5 p-4 text-left opacity-60"
                 >
-                  <span className="mb-3 font-mono text-sm font-bold text-ink-soft">
+                  <span className="font-mono text-sm font-bold text-ink-soft">
                     {fmt(item.price)}
                   </span>
-                  <span className="text-base font-bold leading-snug text-ink-soft">
-                    {item.name}
-                  </span>
-                  <span className="mt-0.5 text-xs font-bold text-tomato">Out of stock</span>
+                  <div className="mt-2 min-w-0">
+                    <span className="line-clamp-2 text-sm font-bold leading-snug text-ink-soft sm:text-base">
+                      {item.name}
+                    </span>
+                    <span className="mt-1 inline-block rounded bg-tomato/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-tomato">
+                      Out of stock
+                    </span>
+                  </div>
                 </div>
-              ),
-            )}
+              );
+            })}
           </div>
         </div>
 
@@ -312,25 +379,39 @@ function Billing() {
       </section>
 
       {/* Mobile/tablet portrait: bottom bar + sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/15 bg-paper/95 p-3 backdrop-blur lg:hidden">
+      <div className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-paper/95 p-3 backdrop-blur-md lg:hidden">
         <button
+          type="button"
           onClick={() => setCartOpen(true)}
-          className="press flex w-full items-center justify-between rounded-xl bg-coffee px-5 py-4 text-cream shadow-card"
+          className="press flex w-full items-center justify-between rounded-2xl bg-coffee px-5 py-3.5 text-cream shadow-card transition-all active:scale-[0.99]"
         >
-          <span className="font-bold">View order · {count}</span>
-          <span className="font-mono text-lg font-bold">{fmt(total)}</span>
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-7 place-items-center rounded-lg bg-cream/15">
+              <ShoppingCart className="size-4" />
+            </span>
+            <span className="font-bold">View order · {count}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-lg font-bold">{fmt(total)}</span>
+            <span className="text-xs font-extrabold uppercase text-amber">Review →</span>
+          </div>
         </button>
       </div>
+
       {cartOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-ink/40 lg:hidden"
+          className="fixed inset-0 z-50 flex items-end bg-ink/50 backdrop-blur-xs transition-opacity lg:hidden"
           onClick={() => setCartOpen(false)}
         >
           <div
-            className="max-h-[92vh] w-full overflow-y-auto p-3"
+            className="safe-bottom max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {cartPanel}
+            {/* Grab handle for touch ergonomics */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1.5 w-12 rounded-full bg-ink/20" />
+            </div>
+            <div className="p-3 pt-0">{cartPanel}</div>
           </div>
         </div>
       )}

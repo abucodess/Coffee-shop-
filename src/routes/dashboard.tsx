@@ -1,6 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, Calendar, AlertCircle } from "lucide-react";
+import {
+  Download,
+  RefreshCw,
+  Calendar,
+  AlertCircle,
+  TrendingUp,
+  CheckCircle2,
+  Calculator,
+  XCircle,
+  Award,
+  Banknote,
+  CreditCard,
+  QrCode,
+} from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { fmt, type Order } from "@/lib/pos-data";
 import { usePos } from "@/lib/pos-store";
@@ -170,6 +183,10 @@ function Dashboard() {
     [paidOrders],
   );
 
+  const cashPct = totalSales > 0 ? Math.round((cashSales / totalSales) * 100) : 0;
+  const cardPct = totalSales > 0 ? Math.round((cardSales / totalSales) * 100) : 0;
+  const upiPct = totalSales > 0 ? Math.round((upiSales / totalSales) * 100) : 0;
+
   const cancelledSalesTotal = useMemo(
     () => cancelledOrders.reduce((sum, o) => sum + o.total, 0),
     [cancelledOrders],
@@ -269,14 +286,14 @@ function Dashboard() {
 
         {/* Date Filter Bar: Exactly the 5 requested options */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap rounded-xl border border-ink/15 bg-paper p-1 text-xs font-bold shadow-card">
+          <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border border-ink/15 bg-paper p-1 text-xs font-bold shadow-card">
             <button
               type="button"
               data-testid="filter-today"
               onClick={() => setFilterType("today")}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
+              className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "today"
-                  ? "bg-coffee text-cream"
+                  ? "bg-coffee text-cream shadow-xs"
                   : "text-ink-soft hover:text-coffee hover:bg-cream/60"
               }`}
             >
@@ -286,9 +303,9 @@ function Dashboard() {
               type="button"
               data-testid="filter-date"
               onClick={() => setFilterType("date")}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
+              className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "date"
-                  ? "bg-coffee text-cream"
+                  ? "bg-coffee text-cream shadow-xs"
                   : "text-ink-soft hover:text-coffee hover:bg-cream/60"
               }`}
             >
@@ -298,9 +315,9 @@ function Dashboard() {
               type="button"
               data-testid="filter-month"
               onClick={() => setFilterType("month")}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
+              className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "month"
-                  ? "bg-coffee text-cream"
+                  ? "bg-coffee text-cream shadow-xs"
                   : "text-ink-soft hover:text-coffee hover:bg-cream/60"
               }`}
             >
@@ -310,9 +327,9 @@ function Dashboard() {
               type="button"
               data-testid="filter-custom"
               onClick={() => setFilterType("custom")}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
+              className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "custom"
-                  ? "bg-coffee text-cream"
+                  ? "bg-coffee text-cream shadow-xs"
                   : "text-ink-soft hover:text-coffee hover:bg-cream/60"
               }`}
             >
@@ -322,9 +339,9 @@ function Dashboard() {
               type="button"
               data-testid="filter-all"
               onClick={() => setFilterType("all")}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
+              className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "all"
-                  ? "bg-coffee text-cream"
+                  ? "bg-coffee text-cream shadow-xs"
                   : "text-ink-soft hover:text-coffee hover:bg-cream/60"
               }`}
             >
@@ -446,30 +463,37 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Metrics Row */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Metrics Row: 2 cols on mobile, 3 on tablet, 5 on desktop */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="col-span-2 sm:col-span-1">
+          <Stat
+            dark
+            icon={TrendingUp}
+            label="Total Sales"
+            value={fmt(totalSales)}
+            sub={`${totalPaidOrders} paid orders`}
+          />
+        </div>
         <Stat
-          dark
-          label="Total Sales"
-          value={fmt(totalSales)}
-          sub={`${totalPaidOrders} paid orders`}
-        />
-        <Stat
+          icon={CheckCircle2}
           label="Paid Orders"
           value={String(totalPaidOrders)}
           sub={`Avg ${fmt(avgOrderValue)} / order`}
         />
         <Stat
+          icon={Calculator}
           label="Average Order Value"
           value={fmt(avgOrderValue)}
           sub={`across ${totalPaidOrders} orders`}
         />
         <Stat
+          icon={XCircle}
           label="Cancelled Orders"
           value={String(cancelledOrders.length)}
           sub="Excluded from revenue"
         />
         <Stat
+          icon={Award}
           label="Top Item"
           value={bestSellers[0]?.name ?? "—"}
           sub={bestSellers[0] ? `${bestSellers[0].qty} sold` : "No sales yet"}
@@ -485,7 +509,7 @@ function Dashboard() {
             <p className="font-mono text-xs text-ink-soft">{chartSubtitle}</p>
           </div>
           <div className="font-mono text-xs font-bold text-ink-soft">
-            Total: <span className="text-ink">{fmt(totalSales)}</span>
+            Total: <span className="text-ink font-bold">{fmt(totalSales)}</span>
           </div>
         </div>
 
@@ -529,21 +553,42 @@ function Dashboard() {
       </section>
 
       {/* Bottom Section: Best Sellers and Payments */}
-      <section className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <section className="mt-6 grid gap-5 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-2xl border border-ink/10 bg-paper p-5 shadow-card">
-          <h2 className="mb-4 text-lg font-extrabold text-ink">Best sellers</h2>
-          <div className="space-y-3">
-            {bestSellers.map((item) => (
-              <div key={item.name}>
-                <div className="flex justify-between text-sm font-bold text-ink">
-                  <span>{item.name}</span>
-                  <span className="font-mono">
-                    {item.qty} {item.qty === 1 ? "unit" : "units"} ({fmt(item.revenue)})
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-extrabold text-ink">Best sellers</h2>
+            <span className="font-mono text-xs font-bold text-ink-soft">
+              {bestSellers.length} items ranked
+            </span>
+          </div>
+          <div className="space-y-3.5">
+            {bestSellers.map((item, idx) => (
+              <div key={item.name} className="group">
+                <div className="flex items-center justify-between text-sm font-bold text-ink">
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    <span
+                      className={`grid size-6 place-items-center rounded-lg text-xs font-black shrink-0 ${
+                        idx === 0
+                          ? "bg-amber text-coffee shadow-xs"
+                          : idx === 1
+                            ? "bg-cream border border-ink/15 text-coffee font-extrabold"
+                            : idx === 2
+                              ? "bg-sand text-coffee"
+                              : "bg-ink/5 text-ink-soft"
+                      }`}
+                    >
+                      #{idx + 1}
+                    </span>
+                    <span className="truncate">{item.name}</span>
+                  </div>
+                  <span className="shrink-0 font-mono text-xs text-ink-soft group-hover:text-ink">
+                    {item.qty} {item.qty === 1 ? "unit" : "units"} ·{" "}
+                    <span className="font-bold text-coffee">{fmt(item.revenue)}</span>
                   </span>
                 </div>
-                <div className="mt-1 h-2.5 rounded-full bg-muted">
+                <div className="mt-1.5 h-2 rounded-full bg-cream overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-amber transition-all"
+                    className="h-full rounded-full bg-amber transition-all duration-500"
                     style={{ width: `${(item.qty / maxBestSellerQty) * 100}%` }}
                   />
                 </div>
@@ -557,16 +602,36 @@ function Dashboard() {
 
         <div className="rounded-2xl border border-ink/10 bg-paper p-5 shadow-card">
           <h2 className="mb-4 text-lg font-extrabold text-ink">Payments</h2>
-          <Row label="Cash Sales" value={fmt(cashSales)} dot="bg-mint" />
-          <Row label="Card Sales" value={fmt(cardSales)} dot="bg-coffee" />
-          <Row label="UPI Sales" value={fmt(upiSales)} dot="bg-amber" />
-
-          <div className="mt-3 flex justify-between border-t border-dashed border-ink/20 pt-3 font-bold text-ink">
-            <span>Total Sales</span>
-            <span className="font-mono text-base">{fmt(totalSales)}</span>
+          <div className="space-y-1">
+            <Row
+              label="Cash Sales"
+              value={fmt(cashSales)}
+              dot="bg-mint"
+              icon={Banknote}
+              percentage={cashPct}
+            />
+            <Row
+              label="Card Sales"
+              value={fmt(cardSales)}
+              dot="bg-coffee"
+              icon={CreditCard}
+              percentage={cardPct}
+            />
+            <Row
+              label="UPI Sales"
+              value={fmt(upiSales)}
+              dot="bg-amber"
+              icon={QrCode}
+              percentage={upiPct}
+            />
           </div>
 
-          <div className="mt-4 border-t border-dashed border-ink/20 pt-3">
+          <div className="mt-4 flex justify-between border-t border-dashed border-ink/20 pt-3 font-bold text-ink">
+            <span className="text-sm">Total Sales</span>
+            <span className="font-mono text-base font-black text-coffee">{fmt(totalSales)}</span>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-tomato/20 bg-tomato/5 p-3">
             <div className="flex items-center justify-between text-xs font-bold text-tomato">
               <span className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-tomato" />
@@ -574,7 +639,7 @@ function Dashboard() {
               </span>
               <span className="font-mono">{fmt(cancelledSalesTotal)}</span>
             </div>
-            <p className="mt-1 text-[11px] font-bold text-ink-soft">
+            <p className="mt-1 text-[11px] font-medium text-ink-soft">
               Excluded from revenue and best-selling metrics
             </p>
           </div>
@@ -590,42 +655,90 @@ function Stat({
   sub,
   dark,
   small,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   sub: string;
   dark?: boolean;
   small?: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
   return (
     <div
-      className={`rounded-2xl border border-ink/10 p-5 shadow-card ${dark ? "bg-coffee text-cream" : "bg-paper text-ink"}`}
+      className={`card-hover flex flex-col justify-between rounded-2xl border border-ink/10 p-4 sm:p-5 shadow-card transition-all ${
+        dark ? "bg-coffee text-cream" : "bg-paper text-ink"
+      }`}
     >
-      <div
-        className={`font-mono text-xs font-bold uppercase tracking-[0.15em] ${dark ? "text-cream/60" : "text-ink-soft"}`}
-      >
-        {label}
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`font-mono text-[11px] font-bold uppercase tracking-wider sm:text-xs ${
+            dark ? "text-cream/70" : "text-ink-soft"
+          }`}
+        >
+          {label}
+        </span>
+        {Icon && (
+          <span
+            className={`grid size-7 place-items-center rounded-lg ${
+              dark ? "bg-cream/15 text-lemon" : "bg-cream text-ink-soft"
+            }`}
+          >
+            <Icon className="size-3.5" />
+          </span>
+        )}
       </div>
       <div
-        className={`mt-1 font-bold ${small ? "text-xl font-extrabold" : "font-mono text-3xl"} ${dark ? "text-lemon" : ""}`}
+        className={`mt-2 font-bold ${
+          small ? "text-lg font-extrabold sm:text-xl truncate" : "font-mono text-2xl sm:text-3xl"
+        } ${dark ? "text-lemon" : "text-ink"}`}
       >
         {value}
       </div>
-      <div className={`mt-1 text-xs font-bold ${dark ? "text-cream/70" : "text-ink-soft"}`}>
+      <div
+        className={`mt-1 truncate text-xs font-semibold ${
+          dark ? "text-cream/70" : "text-ink-soft"
+        }`}
+      >
         {sub}
       </div>
     </div>
   );
 }
 
-function Row({ label, value, dot }: { label: string; value: string; dot: string }) {
+function Row({
+  label,
+  value,
+  dot,
+  icon: Icon,
+  percentage,
+}: {
+  label: string;
+  value: string;
+  dot: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  percentage?: number;
+}) {
   return (
-    <div className="flex items-center justify-between py-1.5 text-sm font-bold text-ink">
+    <div className="flex items-center justify-between py-2 text-sm font-bold text-ink">
       <span className="flex items-center gap-2">
-        <span className={`size-2.5 rounded-full ${dot}`} />
-        {label}
+        {Icon ? (
+          <span className="grid size-6 place-items-center rounded-md bg-cream text-ink-soft">
+            <Icon className="size-3.5" />
+          </span>
+        ) : (
+          <span className={`size-2.5 rounded-full ${dot}`} />
+        )}
+        <span>{label}</span>
       </span>
-      <span className="font-mono">{value}</span>
+      <div className="flex items-center gap-2">
+        {percentage !== undefined && !isNaN(percentage) && (
+          <span className="font-mono text-xs font-semibold text-ink-soft">
+            {percentage}%
+          </span>
+        )}
+        <span className="font-mono">{value}</span>
+      </div>
     </div>
   );
 }

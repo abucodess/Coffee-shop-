@@ -168,7 +168,7 @@ function LoginPage() {
 
       {/* Login Card Section */}
       <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8 lg:p-14">
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-md space-y-6 rounded-3xl border border-ink/10 bg-paper/90 p-6 sm:p-8 shadow-card-lg backdrop-blur-xs">
           {/* Header */}
           <div className="space-y-1.5">
             <div className="font-mono text-xs font-bold uppercase tracking-wider text-amber-deep">
