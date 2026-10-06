@@ -193,6 +193,47 @@ on conflict (id) do update set
   is_available = excluded.is_available,
   updated_at = now();
 
+-- Add optional product image URL column (idempotent)
+alter table public.products add column if not exists image_url text;
+
+-- ============================================================
+-- 8. Supabase Storage: product-images bucket
+-- ============================================================
+-- Create a public bucket for product images (menu photos shown on POS billing page).
+-- Run the following in the Supabase SQL Editor to create the bucket and policies:
+--
+--   insert into storage.buckets (id, name, public)
+--   values ('product-images', 'product-images', true)
+--   on conflict (id) do nothing;
+--
+-- Storage RLS Policies:
+--   Anyone authenticated can READ product images (they are menu images for the POS).
+--   Only admins can INSERT (upload), UPDATE, and DELETE product images.
+--
+-- Policy: Allow authenticated users to read product images
+--   create policy "Allow authenticated read product images"
+--     on storage.objects for select
+--     to authenticated
+--     using (bucket_id = 'product-images');
+--
+-- Policy: Allow admins to upload product images
+--   create policy "Allow admin upload product images"
+--     on storage.objects for insert
+--     to authenticated
+--     with check (bucket_id = 'product-images' and public.is_admin());
+--
+-- Policy: Allow admins to update product images
+--   create policy "Allow admin update product images"
+--     on storage.objects for update
+--     to authenticated
+--     using (bucket_id = 'product-images' and public.is_admin());
+--
+-- Policy: Allow admins to delete product images
+--   create policy "Allow admin delete product images"
+--     on storage.objects for delete
+--     to authenticated
+--     using (bucket_id = 'product-images' and public.is_admin());
+
 -- ============================================================
 -- 3. Order number generator
 -- ============================================================

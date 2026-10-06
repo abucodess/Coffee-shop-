@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FolderPlus, Plus, Tag, Trash2 } from "lucide-react";
+import { FolderPlus, ImagePlus, X, Loader2, Plus, Tag, Trash2 } from "lucide-react";
 import { fmt, type CategoryItem, type MenuItem } from "@/lib/pos-data";
 import {
   addCategory,
@@ -423,20 +423,97 @@ function EditModal({
   const field =
     "mt-1 w-full rounded-xl border border-ink/20 bg-cream px-3 py-2.5 font-medium outline-none focus:border-amber";
 
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    item.image_url || null,
+  );
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clean up object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (imagePreview && imagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageError(null);
+    setIsCompressing(true);
+
+    try {
+      const { compressProductImage } = await import("@/lib/image-compress");
+      const result = await compressProductImage(file);
+
+      // Revoke previous preview if it was a blob URL
+      if (imagePreview && imagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreview);
+      }
+
+      setImageFile(file);
+      setCompressedBlob(result.blob);
+      setImagePreview(result.previewUrl);
+    } catch (err: any) {
+      setImageError(
+        err?.message || "Unable to process this image. Please try another image.",
+      );
+      setImageFile(null);
+      setCompressedBlob(null);
+    } finally {
+      setIsCompressing(false);
+      // Reset input so re-selecting the same file triggers onChange
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (imagePreview && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(null);
+    setCompressedBlob(null);
+    setImagePreview(null);
+    setImageError(null);
+    // Mark draft as explicitly having no image
+    setDraft((d) => ({ ...d, image_url: null }));
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid || saving) return;
     setSaving(true);
+
     try {
+      let imageUrl: string | null | undefined = draft.image_url;
+
+      // If a new image was selected, upload it first
+      if (compressedBlob) {
+        const { uploadProductImage } = await import("@/lib/image-upload");
+        imageUrl = await uploadProductImage(compressedBlob);
+      } else if (imagePreview === null && item.image_url) {
+        // Image was explicitly removed
+        imageUrl = null;
+      }
+
       await saveMenuItem({
         ...draft,
         name: draft.name.trim(),
         price: Math.round(Number(price) * 100) / 100,
+        image_url: imageUrl,
       });
       toast.success(isNew ? "Item added" : "Item updated");
       onClose();
-    } catch {
-      toast.error("Failed to save menu item");
+    } catch (err: any) {
+      const msg = err?.message || "Failed to save menu item";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -520,10 +597,71 @@ function EditModal({
             ))}
           </div>
         </div>
+
+        {/* Product Image Upload */}
+        <div className="text-sm font-bold">
+          <div className="flex items-center justify-between">
+            <span>Product Image</span>
+            <span className="text-[11px] font-semibold text-ink-soft lowercase">(optional)</span>
+          </div>
+
+          {imagePreview ? (
+            <div className="mt-2 relative">
+              <div className="overflow-hidden rounded-xl border border-ink/15 bg-cream shadow-xs">
+                <img
+                  src={imagePreview}
+                  alt="Product preview"
+                  className="w-full h-40 object-cover"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                disabled={saving}
+                className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-ink/60 text-white hover:bg-ink/80 transition-colors shadow-card-sm disabled:opacity-40"
+                aria-label="Remove image"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={isCompressing || saving}
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-ink/20 bg-cream/50 px-4 py-5 text-xs font-bold text-ink-soft transition-colors hover:border-amber/40 hover:bg-cream/80 disabled:opacity-50"
+            >
+              {isCompressing ? (
+                <>
+                  <Loader2 className="size-4 animate-spin text-amber" />
+                  <span>Processing image…</span>
+                </>
+              ) : (
+                <>
+                  <ImagePlus className="size-4 text-ink-soft" />
+                  <span>Choose Image</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+
+          {imageError && (
+            <p className="mt-1.5 text-xs font-bold text-tomato">{imageError}</p>
+          )}
+        </div>
+
         <div className="flex gap-2 pt-2">
           <button
             type="submit"
-            disabled={!valid || saving}
+            disabled={!valid || saving || isCompressing}
             className="press flex-1 rounded-xl bg-coffee py-3 font-bold text-cream disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save"}

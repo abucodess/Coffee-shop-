@@ -49,6 +49,7 @@ export interface DbProduct {
   category_id: string;
   color: MenuItem["color"];
   is_available: boolean;
+  image_url?: string | null;
 }
 
 export interface DbOrder {
@@ -203,7 +204,7 @@ export async function fetchProducts(): Promise<MenuItem[]> {
 
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, name, description, price, category_id, color, is_available, categories(id, name)")
+    .select("id, name, description, price, category_id, color, is_available, image_url, categories(id, name)")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -224,6 +225,7 @@ export async function fetchProducts(): Promise<MenuItem[]> {
     category: p.categories?.name || p.category_id || "Espresso",
     color: p.color || "lemon",
     available: Boolean(p.is_available),
+    image_url: p.image_url || null,
   }));
 }
 
@@ -272,6 +274,7 @@ export async function seedInitialMenu(): Promise<MenuItem[]> {
     category: p.categories?.name || p.category_id || "Espresso",
     color: p.color || "lemon",
     available: Boolean(p.is_available),
+    image_url: p.image_url || null,
   }));
 }
 
@@ -309,17 +312,24 @@ export async function saveProduct(item: MenuItem): Promise<void> {
     );
   }
 
+  const productPayload: Record<string, any> = {
+    id: item.id,
+    name: item.name,
+    description: item.note,
+    price: item.price,
+    category_id: categorySlug,
+    color: item.color,
+    is_available: item.available,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Only include image_url if it was explicitly provided (to avoid clobbering existing images on edit)
+  if (item.image_url !== undefined) {
+    productPayload.image_url = item.image_url || null;
+  }
+
   const { error } = await supabase.from("products").upsert(
-    {
-      id: item.id,
-      name: item.name,
-      description: item.note,
-      price: item.price,
-      category_id: categorySlug,
-      color: item.color,
-      is_available: item.available,
-      updated_at: new Date().toISOString(),
-    },
+    productPayload,
     { onConflict: "id" },
   );
 

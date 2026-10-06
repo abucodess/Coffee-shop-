@@ -111,10 +111,21 @@ function Billing() {
   }, [cart]);
 
   // Memoized calculations to prevent unnecessary re-computations
-  const items = useMemo(
-    () => (cat === "All" ? menu : menu.filter((m) => m.category === cat)),
-    [cat, menu],
-  );
+  // Image-first ordering: products with images come before those without,
+  // preserving original order within each group.
+  const items = useMemo(() => {
+    const filtered = cat === "All" ? menu : menu.filter((m) => m.category === cat);
+    const withImage: typeof filtered = [];
+    const withoutImage: typeof filtered = [];
+    for (const item of filtered) {
+      if (item.image_url) {
+        withImage.push(item);
+      } else {
+        withoutImage.push(item);
+      }
+    }
+    return [...withImage, ...withoutImage];
+  }, [cat, menu]);
   const live = useMemo(() => menu.filter((m) => m.available).length, [menu]);
   const { subtotal, total } = useMemo(() => cartTotals(cart, menu), [cart, menu]);
   const count = useMemo(() => cart.reduce((s, l) => s + l.qty, 0), [cart]);
@@ -424,41 +435,86 @@ function Billing() {
             {items.map((item) => {
               const inCart = cartQtyMap.get(item.id) || 0;
               return item.available ? (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => addToCart(item.id)}
-                  className={`press relative flex min-h-[126px] flex-col justify-between rounded-2xl border p-3.5 sm:p-4 text-left transition-all duration-150 ${
-                    inCart > 0
-                      ? "border-fuwa-orange bg-fuwa-surface ring-2 ring-fuwa-orange/25 shadow-card-lg"
-                      : "border-fuwa-brown/10 bg-fuwa-surface shadow-card hover:border-fuwa-orange/40 hover:shadow-card-lg"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-sm sm:text-base font-extrabold text-fuwa-orange">
-                      {fmt(item.price)}
-                    </span>
-                    {inCart > 0 ? (
-                      <span className="animate-pop grid h-7 min-w-[28px] place-items-center rounded-full bg-fuwa-orange px-2 text-xs font-black tracking-wide text-white shadow-xs">
-                        ×{inCart}
+                item.image_url ? (
+                  /* ── Full-Image Card ── */
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => addToCart(item.id)}
+                    className={`press relative flex min-h-[160px] sm:min-h-[180px] flex-col justify-end rounded-2xl border overflow-hidden text-left transition-all duration-150 ${
+                      inCart > 0
+                        ? "border-fuwa-orange ring-2 ring-fuwa-orange/25 shadow-card-lg"
+                        : "border-fuwa-brown/10 shadow-card hover:border-fuwa-orange/40 hover:shadow-card-lg"
+                    }`}
+                  >
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    {/* Gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    {/* Cart badge */}
+                    <div className="absolute top-2.5 right-2.5 z-10">
+                      {inCart > 0 ? (
+                        <span className="animate-pop grid h-7 min-w-[28px] place-items-center rounded-full bg-fuwa-orange px-2 text-xs font-black tracking-wide text-white shadow-xs">
+                          ×{inCart}
+                        </span>
+                      ) : (
+                        <span className="grid size-7 sm:size-8 place-items-center rounded-xl bg-white/25 backdrop-blur-sm text-sm font-bold text-white transition-colors shadow-2xs">
+                          +
+                        </span>
+                      )}
+                    </div>
+                    {/* Text over image */}
+                    <div className="relative z-10 p-3 sm:p-3.5">
+                      <span className="line-clamp-2 text-sm font-extrabold leading-snug text-white sm:text-base drop-shadow-sm">
+                        {item.name}
                       </span>
-                    ) : (
-                      <span className="grid size-7 sm:size-8 place-items-center rounded-xl bg-fuwa-cream text-sm font-bold text-fuwa-brown transition-colors shadow-2xs">
-                        +
+                      <span className="mt-0.5 block font-mono text-sm font-extrabold text-white/90 sm:text-base drop-shadow-sm">
+                        {fmt(item.price)}
                       </span>
-                    )}
-                  </div>
-                  <div className="mt-2.5 min-w-0">
-                    <span className="line-clamp-2 text-sm font-extrabold leading-snug text-fuwa-brown sm:text-base">
-                      {item.name}
-                    </span>
-                    {item.note && (
-                      <span className="mt-1 block line-clamp-2 text-[11px] sm:text-xs font-medium text-fuwa-brown/65 leading-tight">
-                        {item.note}
+                    </div>
+                  </button>
+                ) : (
+                  /* ── Existing Text-Only Card ── */
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => addToCart(item.id)}
+                    className={`press relative flex min-h-[126px] flex-col justify-between rounded-2xl border p-3.5 sm:p-4 text-left transition-all duration-150 ${
+                      inCart > 0
+                        ? "border-fuwa-orange bg-fuwa-surface ring-2 ring-fuwa-orange/25 shadow-card-lg"
+                        : "border-fuwa-brown/10 bg-fuwa-surface shadow-card hover:border-fuwa-orange/40 hover:shadow-card-lg"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-mono text-sm sm:text-base font-extrabold text-fuwa-orange">
+                        {fmt(item.price)}
                       </span>
-                    )}
-                  </div>
-                </button>
+                      {inCart > 0 ? (
+                        <span className="animate-pop grid h-7 min-w-[28px] place-items-center rounded-full bg-fuwa-orange px-2 text-xs font-black tracking-wide text-white shadow-xs">
+                          ×{inCart}
+                        </span>
+                      ) : (
+                        <span className="grid size-7 sm:size-8 place-items-center rounded-xl bg-fuwa-cream text-sm font-bold text-fuwa-brown transition-colors shadow-2xs">
+                          +
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2.5 min-w-0">
+                      <span className="line-clamp-2 text-sm font-extrabold leading-snug text-fuwa-brown sm:text-base">
+                        {item.name}
+                      </span>
+                      {item.note && (
+                        <span className="mt-1 block line-clamp-2 text-[11px] sm:text-xs font-medium text-fuwa-brown/65 leading-tight">
+                          {item.note}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
               ) : (
                 <div
                   key={item.id}

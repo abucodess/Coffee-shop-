@@ -13,6 +13,7 @@ export interface MenuItem {
   category: Category;
   color: "lemon" | "coral" | "mint-soft" | "lilac" | "clay" | "sky" | "paper";
   available: boolean;
+  image_url?: string | null;
 }
 
 export interface CartLine {
