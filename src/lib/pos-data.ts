@@ -32,18 +32,55 @@ export interface OrderLine {
 export interface Order {
   id: string;
   number: string;
-  invoiceNumber?: string;
+  invoiceNumber?: string | undefined;
   createdAt: number;
   lines: OrderLine[];
   subtotal: number;
   tax: number;
-  cgst?: number;
-  sgst?: number;
-  discount?: number;
+  cgst?: number | undefined;
+  sgst?: number | undefined;
+  discount?: number | undefined;
   total: number;
   payment: PaymentMethod;
   status: OrderStatus;
-  cashier?: string;
+  cashier?: string | undefined;
+  customerName?: string | undefined;
+  customerPhone?: string | undefined;
+}
+
+/**
+ * Sanitizes phone input by stripping non-numeric characters and extracting standard 10 digits
+ */
+export function sanitizePhoneDigits(raw: string): string {
+  let digits = raw.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+  return digits.slice(0, 10);
+}
+
+/**
+ * Validates a 10-digit phone number.
+ * Empty or undefined is considered valid (optional in POS).
+ * If non-empty, must be exactly 10 numeric digits.
+ */
+export function validatePhoneNumber(phone?: string | null): {
+  isValid: boolean;
+  error?: string;
+} {
+  if (!phone || !phone.trim()) {
+    return { isValid: true };
+  }
+  const cleaned = phone.trim();
+  if (/^\d{10}$/.test(cleaned)) {
+    return { isValid: true };
+  }
+  return {
+    isValid: false,
+    error: "Phone number must be exactly 10 digits",
+  };
 }
 
 // Configurable GST Rates (tax removed - 0%)
@@ -223,6 +260,8 @@ export function seedOrders(menu: MenuItem[]): Order[] {
     picks: [string, number][],
     payment: PaymentMethod,
     status: OrderStatus = "paid",
+    customerName?: string,
+    customerPhone?: string,
   ): Order => {
     const lines = picks.map(([id, qty]) => {
       const item = menu.find((m) => m.id === id)!;
@@ -240,6 +279,8 @@ export function seedOrders(menu: MenuItem[]): Order[] {
       total: subtotal,
       payment,
       status,
+      customerName,
+      customerPhone,
     };
   };
   return [
@@ -251,8 +292,11 @@ export function seedOrders(menu: MenuItem[]): Order[] {
         ["cardamom-bun", 1],
       ],
       "card",
+      "paid",
+      "Aarav Sharma",
+      "9876543210",
     ),
-    mk(116, 25, [["acai-bowl", 1]], "cash"),
+    mk(116, 25, [["acai-bowl", 1]], "cash", "paid", "Priya Nair", "9123456789"),
     mk(115, 40, [["cold-brew-tonic", 1]], "card"),
     mk(
       114,

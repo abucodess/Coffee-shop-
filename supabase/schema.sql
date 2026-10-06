@@ -202,6 +202,8 @@ create table if not exists public.orders (
   payment_method text not null check (payment_method in ('cash', 'card', 'upi')),
   status text not null default 'paid' check (status in ('paid', 'cancelled')),
   cashier text not null default 'Cashier',
+  customer_name text default '',
+  customer_phone text default '',
   created_at timestamptz not null default now(),
   cancelled_at timestamptz
 );
@@ -209,6 +211,8 @@ create table if not exists public.orders (
 alter table public.orders drop constraint if exists orders_payment_method_check;
 alter table public.orders add constraint orders_payment_method_check check (payment_method in ('cash', 'card', 'upi'));
 alter table public.orders add column if not exists cashier text default 'Cashier';
+alter table public.orders add column if not exists customer_name text default '';
+alter table public.orders add column if not exists customer_phone text default '';
 
 -- ============================================================
 -- 5. Order items table
@@ -226,6 +230,7 @@ create table if not exists public.order_items (
 create index if not exists idx_products_category on public.products(category_id);
 create index if not exists idx_orders_created_at on public.orders(created_at desc);
 create index if not exists idx_orders_status on public.orders(status);
+create index if not exists idx_orders_customer_phone on public.orders(customer_phone);
 create index if not exists idx_order_items_order_id on public.order_items(order_id);
 create index if not exists idx_order_items_product_id on public.order_items(product_id);
 

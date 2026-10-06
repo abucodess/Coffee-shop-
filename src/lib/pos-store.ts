@@ -326,6 +326,8 @@ export async function completeOrder(
   payment: PaymentMethod,
   discount: number = 0,
   cashier?: string,
+  customerName?: string,
+  customerPhone?: string,
 ): Promise<Order | null> {
   if (state.cart.length === 0 || state.isSubmittingOrder) return null;
 
@@ -341,7 +343,14 @@ export async function completeOrder(
   setState({ isSubmittingOrder: true });
 
   try {
-    const order = await createOrderInDb(cartLines, payment, discount, cashier);
+    const order = await createOrderInDb(
+      cartLines,
+      payment,
+      discount,
+      cashier,
+      customerName,
+      customerPhone,
+    );
 
     // Only clear cart and append order upon successful persistence
     setState({

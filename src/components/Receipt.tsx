@@ -122,6 +122,18 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
               <span className="text-ink-soft">Cashier:</span>
               <span>{cashierName}</span>
             </div>
+            {order.customerName && (
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Customer:</span>
+                <span className="font-bold">{order.customerName}</span>
+              </div>
+            )}
+            {order.customerPhone && (
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Phone:</span>
+                <span className="font-mono font-bold">{order.customerPhone}</span>
+              </div>
+            )}
           </div>
 
           <div className="my-2.5 border-t border-dashed border-ink/30" />

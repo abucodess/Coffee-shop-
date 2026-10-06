@@ -61,6 +61,9 @@ export interface DbOrder {
   status: "paid" | "cancelled";
   created_at: string;
   cancelled_at: string | null;
+  cashier?: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
 }
 
 export interface DbOrderItem {
@@ -363,7 +366,7 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function fetchOrders(): Promise<Order[]> {
   if (!isSupabaseConfigured) return [];
 
-  const { data, error } = await supabase
+  let queryResult = await supabase
     .from("orders")
     .select(
       `
@@ -374,6 +377,9 @@ export async function fetchOrders(): Promise<Order[]> {
       total,
       payment_method,
       status,
+      cashier,
+      customer_name,
+      customer_phone,
       created_at,
       cancelled_at,
       order_items (
@@ -386,6 +392,40 @@ export async function fetchOrders(): Promise<Order[]> {
     `,
     )
     .order("created_at", { ascending: false });
+
+  // If customer_name or cashier column doesn't exist yet in remote schema, retry with basic query
+  if (
+    queryResult.error &&
+    (queryResult.error.code === "42703" ||
+      queryResult.error.code === "PGRST204" ||
+      queryResult.error.message?.includes("column"))
+  ) {
+    queryResult = await supabase
+      .from("orders")
+      .select(
+        `
+        id,
+        order_number,
+        subtotal,
+        tax,
+        total,
+        payment_method,
+        status,
+        created_at,
+        cancelled_at,
+        order_items (
+          id,
+          product_name,
+          unit_price,
+          quantity,
+          total
+        )
+      `,
+      )
+      .order("created_at", { ascending: false });
+  }
+
+  const { data, error } = queryResult;
 
   if (error) {
     console.error("Failed to fetch orders:", error);
@@ -418,6 +458,8 @@ export async function fetchOrders(): Promise<Order[]> {
       payment: o.payment_method,
       status: o.status,
       cashier: o.cashier || SHOP_INFO.cashierName,
+      customerName: o.customer_name || undefined,
+      customerPhone: o.customer_phone || undefined,
     };
   });
 }
@@ -458,6 +500,8 @@ export async function createOrder(
   payment: PaymentMethod,
   discount: number = 0,
   cashier: string = "Cashier",
+  customerName?: string,
+  customerPhone?: string,
 ): Promise<Order> {
   if (lines.length === 0) {
     throw new Error("Cannot create an empty order");
@@ -478,6 +522,9 @@ export async function createOrder(
   const currentYear = new Date().getFullYear();
   const invoiceNumber = `MC-${currentYear}-${orderNumber.replace(/^A-/, "").padStart(3, "0")}`;
 
+  const cleanCustomerName = customerName?.trim() || undefined;
+  const cleanCustomerPhone = customerPhone?.trim() || undefined;
+
   if (isSupabaseConfigured) {
     // 1. Insert order record
     const orderPayload: any = {
@@ -490,15 +537,36 @@ export async function createOrder(
       status: "paid",
       created_at: new Date().toISOString(),
       cashier: cashier,
+      customer_name: cleanCustomerName || "",
+      customer_phone: cleanCustomerPhone || "",
     };
 
     let { error: orderError } = await supabase.from("orders").insert(orderPayload);
 
-    // If cashier column does not exist in older DB schema, retry without cashier column
-    if (orderError && (orderError.code === "42703" || orderError.message?.includes("cashier"))) {
-      delete orderPayload.cashier;
+    // If customer or cashier columns do not exist in older DB schema, retry without them
+    if (
+      orderError &&
+      (orderError.code === "42703" ||
+        orderError.code === "PGRST204" ||
+        orderError.message?.includes("customer") ||
+        orderError.message?.includes("cashier") ||
+        orderError.message?.includes("column"))
+    ) {
+      delete orderPayload.customer_name;
+      delete orderPayload.customer_phone;
       const retryResult = await supabase.from("orders").insert(orderPayload);
       orderError = retryResult.error;
+
+      if (
+        orderError &&
+        (orderError.code === "42703" ||
+          orderError.code === "PGRST204" ||
+          orderError.message?.includes("cashier"))
+      ) {
+        delete orderPayload.cashier;
+        const retryResult2 = await supabase.from("orders").insert(orderPayload);
+        orderError = retryResult2.error;
+      }
     }
 
     // If existing database has legacy constraint only allowing ('cash', 'card'), gracefully retry
@@ -559,6 +627,8 @@ export async function createOrder(
     payment,
     status: "paid",
     cashier: cashier,
+    customerName: cleanCustomerName,
+    customerPhone: cleanCustomerPhone,
   };
 }
 
@@ -603,6 +673,9 @@ export async function fetchOrdersByRange(
       total,
       payment_method,
       status,
+      cashier,
+      customer_name,
+      customer_phone,
       created_at,
       cancelled_at,
       order_items (
@@ -624,16 +697,63 @@ export async function fetchOrdersByRange(
     query = query.lte("created_at", endDate.toISOString());
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
+
+  // Fallback query if customer_name or cashier column missing
+  if (
+    error &&
+    (error.code === "42703" ||
+      error.code === "PGRST204" ||
+      error.message?.includes("column"))
+  ) {
+    let fallbackQuery = supabase
+      .from("orders")
+      .select(
+        `
+        id,
+        order_number,
+        subtotal,
+        tax,
+        total,
+        payment_method,
+        status,
+        created_at,
+        cancelled_at,
+        order_items (
+          id,
+          product_name,
+          unit_price,
+          quantity,
+          total
+        )
+      `,
+      )
+      .order("created_at", { ascending: false })
+      .limit(10000);
+
+    if (startDate) {
+      fallbackQuery = fallbackQuery.gte("created_at", startDate.toISOString());
+    }
+    if (endDate) {
+      fallbackQuery = fallbackQuery.lte("created_at", endDate.toISOString());
+    }
+    const fallbackRes = await fallbackQuery;
+    data = fallbackRes.data;
+    error = fallbackRes.error;
+  }
 
   if (error) {
     console.error("Failed to fetch orders by range from Supabase:", error);
     throw error;
   }
 
+  if (!data) return [];
+
   return data.map((rawOrder) => {
     const o = rawOrder as DbOrder & {
       cashier?: string;
+      customer_name?: string | null;
+      customer_phone?: string | null;
       order_items?: DbOrderItem[];
     };
     const subtotal = Number(o.subtotal);
@@ -659,6 +779,8 @@ export async function fetchOrdersByRange(
       payment: o.payment_method,
       status: o.status,
       cashier: o.cashier || SHOP_INFO.cashierName,
+      customerName: o.customer_name || undefined,
+      customerPhone: o.customer_phone || undefined,
     };
   });
 }

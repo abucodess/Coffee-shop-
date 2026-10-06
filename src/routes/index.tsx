@@ -2,15 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   Banknote,
+  Check,
   CreditCard,
+  Phone,
   QrCode,
   ShoppingCart,
   Sparkles,
+  User,
   X,
 } from "lucide-react";
 import {
   fmt,
+  sanitizePhoneDigits,
   type Category,
   type Order,
   type PaymentMethod,
@@ -93,6 +98,9 @@ function Billing() {
   const isSubmittingOrder = usePos((s) => s.isSubmittingOrder);
   const [cat, setCat] = useState<string>("All");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
+  const [customerName, setCustomerName] = useState<string>("");
+  const [customerPhone, setCustomerPhone] = useState<string>("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<Order | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -136,18 +144,46 @@ function Billing() {
   const { subtotal, total } = useMemo(() => cartTotals(cart, menu), [cart, menu]);
   const count = useMemo(() => cart.reduce((s, l) => s + l.qty, 0), [cart]);
 
+  const handlePhoneChange = (val: string) => {
+    const digitsOnly = sanitizePhoneDigits(val);
+    setCustomerPhone(digitsOnly);
+    if (digitsOnly.length > 0 && digitsOnly.length < 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+    } else {
+      setPhoneError(null);
+    }
+  };
+
   const onComplete = async () => {
     if (cart.length === 0 || isSubmittingOrder) return;
+
+    // Validate phone number: if provided, must be strictly 10 digits
+    const cleanedPhone = customerPhone.trim();
+    if (cleanedPhone.length > 0 && cleanedPhone.length !== 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
     try {
       // If admin, display "Cashier". Otherwise, use the staff member's name.
       const cashierName = isAdmin
         ? "Cashier"
         : (profile?.full_name?.trim() || user?.email?.split("@")[0] || "Staff");
 
-      const order = await completeOrder(payment, 0, cashierName);
+      const order = await completeOrder(
+        payment,
+        0,
+        cashierName,
+        customerName.trim() || undefined,
+        cleanedPhone || undefined,
+      );
       if (order) {
         toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
         setReceipt(order);
+        setCustomerName("");
+        setCustomerPhone("");
+        setPhoneError(null);
         setCartOpen(false);
       }
     } catch {
@@ -178,7 +214,7 @@ function Billing() {
         )}
       </div>
 
-      <div className="max-h-[38vh] divide-y divide-dashed divide-ink/10 overflow-y-auto px-5 sm:max-h-[42vh]">
+      <div className="max-h-[34vh] divide-y divide-dashed divide-ink/10 overflow-y-auto px-5 sm:max-h-[36vh]">
         {cart.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <div className="grid size-12 place-items-center rounded-2xl bg-cream text-ink-soft">
@@ -217,6 +253,87 @@ function Billing() {
             </div>
           );
         })}
+      </div>
+
+      {/* Customer Info Section (Optional, with 10-digit phone validation) */}
+      <div className="border-t-2 border-dashed border-ink/15 bg-cream/40 px-5 py-3.5">
+        <div className="mb-2.5 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-ink-soft">
+            <User className="size-3.5 text-coffee" />
+            <span>Customer Details</span>
+            <span className="text-[10px] font-semibold text-ink-soft/70 lowercase">(optional)</span>
+          </span>
+          {(customerName || customerPhone) && (
+            <button
+              type="button"
+              onClick={() => {
+                setCustomerName("");
+                setCustomerPhone("");
+                setPhoneError(null);
+              }}
+              className="text-[11px] font-bold text-ink-soft hover:text-tomato transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          {/* Customer Name */}
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink-soft/60" />
+            <input
+              type="text"
+              id="customer-name-input"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Customer name"
+              className="w-full rounded-xl border border-ink/15 bg-paper py-2 pl-9 pr-3 text-xs font-semibold text-ink placeholder:text-ink-soft/60 shadow-2xs focus:border-coffee focus:outline-none focus:ring-2 focus:ring-coffee/20 transition-all"
+            />
+          </div>
+
+          {/* Customer Phone */}
+          <div>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink-soft/60" />
+              <input
+                type="tel"
+                id="customer-phone-input"
+                inputMode="numeric"
+                maxLength={10}
+                value={customerPhone}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                placeholder="Phone number (10 digits)"
+                className={`w-full rounded-xl border bg-paper py-2 pl-9 pr-14 text-xs font-mono font-semibold text-ink placeholder:text-ink-soft/60 shadow-2xs focus:outline-none transition-all ${
+                  phoneError
+                    ? "border-tomato focus:ring-2 focus:ring-tomato/20"
+                    : customerPhone.length === 10
+                      ? "border-mint focus:ring-2 focus:ring-mint/20"
+                      : "border-ink/15 focus:border-coffee focus:ring-2 focus:ring-coffee/20"
+                }`}
+              />
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                {customerPhone.length === 10 ? (
+                  <span className="flex items-center gap-0.5 text-[11px] font-bold text-mint">
+                    <Check className="size-3.5 stroke-[2.5]" />
+                    <span>10/10</span>
+                  </span>
+                ) : customerPhone.length > 0 ? (
+                  <span className="font-mono text-[10px] font-bold text-ink-soft">
+                    {customerPhone.length}/10
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {phoneError && (
+              <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-tomato">
+                <AlertCircle className="size-3 shrink-0" />
+                <span>{phoneError}</span>
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="border-t-2 border-dashed border-ink/15 px-5 py-4">
@@ -270,6 +387,9 @@ function Billing() {
           disabled={cart.length === 0 || isSubmittingOrder}
           onClick={() => {
             clearCart();
+            setCustomerName("");
+            setCustomerPhone("");
+            setPhoneError(null);
             toast("Order cleared");
           }}
           className="mt-2 w-full rounded-xl px-4 py-2.5 text-sm font-bold text-tomato transition-colors hover:bg-tomato/10 disabled:opacity-40"

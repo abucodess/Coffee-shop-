@@ -5,6 +5,7 @@ import {
   Clock,
   CreditCard,
   Loader2,
+  Phone,
   QrCode,
   ShieldAlert,
   User,
@@ -134,6 +135,17 @@ export function CancelOrderModal({
               <div className="text-[11px] font-bold text-ink-soft">
                 {totalItemsCount} {totalItemsCount === 1 ? "item" : "items"}
               </div>
+              {(order.customerName || order.customerPhone) && (
+                <div className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-coffee">
+                  <User className="size-3 text-ink-soft/70" />
+                  <span>{order.customerName || "Customer"}</span>
+                  {order.customerPhone && (
+                    <span className="font-mono text-[11px] text-ink-soft">
+                      ({order.customerPhone})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="text-right">

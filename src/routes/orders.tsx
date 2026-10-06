@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Banknote, CreditCard, QrCode, Receipt, Search, X } from "lucide-react";
+import { Banknote, CreditCard, Phone, QrCode, Receipt, Search, User, X } from "lucide-react";
 import { fmt, type Order } from "@/lib/pos-data";
 import { cancelOrder, usePos } from "@/lib/pos-store";
 
@@ -53,6 +53,8 @@ function OrdersPage() {
         (o) =>
           String(o.number).includes(q) ||
           (o.cashier && o.cashier.toLowerCase().includes(q)) ||
+          (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+          (o.customerPhone && o.customerPhone.includes(q)) ||
           o.payment.toLowerCase().includes(q) ||
           o.lines.some((l) => l.name.toLowerCase().includes(q)),
       );
@@ -126,7 +128,7 @@ function OrdersPage() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by order #, cashier, payment, or item name…"
+          placeholder="Search by order #, customer, phone, cashier, payment, or item…"
           className="w-full rounded-2xl border border-ink/15 bg-paper py-2.5 pl-10 pr-10 text-sm font-medium text-ink placeholder:text-ink-soft/70 shadow-xs focus:border-coffee focus:outline-none focus:ring-2 focus:ring-coffee/20"
         />
         {search && (
@@ -178,6 +180,22 @@ function OrdersPage() {
                     <div className="mt-1 text-xs font-medium text-ink-soft">
                       {dateStr} · {time} · {o.cashier || "Cashier"}
                     </div>
+                    {(o.customerName || o.customerPhone) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {o.customerName && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber/20 px-2 py-0.5 text-xs font-bold text-coffee">
+                            <User className="size-3 text-coffee/80" />
+                            <span className="truncate max-w-[140px]">{o.customerName}</span>
+                          </span>
+                        )}
+                        {o.customerPhone && (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-ink/10 bg-cream px-2 py-0.5 font-mono text-[11px] font-semibold text-ink-soft">
+                            <Phone className="size-3 text-ink-soft/70" />
+                            <span>{o.customerPhone}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-right">
