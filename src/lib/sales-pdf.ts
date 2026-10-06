@@ -49,7 +49,7 @@ export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }:
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sales & Products Report — Mocha Counter</title>
+  <title>Sales & Products Report — FUWA Japanese Fluffy Desserts</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -250,7 +250,7 @@ export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }:
 <body>
   <div class="header">
     <div>
-      <div class="logo-badge">Mocha Counter POS</div>
+      <div class="logo-badge">FUWA POS</div>
       <h1 class="title">Sales & Products Report</h1>
       <div class="mono" style="font-size: 12px; color: #7d7265; margin-top: 2px;">
         Period: <strong>${timeframe}</strong>
@@ -259,7 +259,7 @@ export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }:
     <div class="meta-right mono">
       <div>Generated: <strong>${generatedAt.toLocaleDateString()} ${generatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong></div>
       <div>Till: <strong>Till 01 (Main Register)</strong></div>
-      <div>Store: <strong>Mocha Counter Coffee</strong></div>
+      <div>Store: <strong>FUWA Japanese Fluffy Desserts</strong></div>
     </div>
   </div>
 
@@ -396,7 +396,7 @@ export function generateSalesPdfReport({ timeframe, generatedAt, orders, menu }:
   </div>
 
   <div class="footer">
-    <div>Mocha Counter POS — Generated automatically from business records</div>
+    <div>FUWA Japanese Fluffy Desserts POS — Generated automatically from business records</div>
     <div>Confidential & Proprietary</div>
   </div>
 

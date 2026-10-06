@@ -8,17 +8,17 @@ export interface StoreSettings {
 }
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
-  name: "Mocha Counter",
-  address: "Kanhangad, Kasaragod\nKerala - 671315",
-  logoUrl: null,
+  name: "FUWA Japanese Fluffy Desserts",
+  address: "108 Omotesando Avenue, Shibuya\nTokyo - 150-0001",
+  logoUrl: "/logo-lg.png",
 };
 
-const STORAGE_KEY = "mocha-store-settings-v1";
+const STORAGE_KEY = "fuwa-store-settings-v1";
 
 function loadLocalSettings(): StoreSettings {
   try {
     if (typeof localStorage !== "undefined") {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("mocha-store-settings-v1");
       if (raw) {
         const parsed = JSON.parse(raw);
         return {

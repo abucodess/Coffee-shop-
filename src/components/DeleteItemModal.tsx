@@ -64,7 +64,7 @@ export function DeleteItemModal({
                 Delete Menu Item
               </h2>
               <p className="text-xs text-ink-soft mt-0.5">
-                Remove this product from the café catalog.
+                Remove this product from the FUWA menu.
               </p>
             </div>
           </div>

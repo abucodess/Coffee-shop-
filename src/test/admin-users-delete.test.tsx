@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 const adminUser = {
   id: "admin-1",
-  email: "admin@cafemocha.com",
+  email: "admin@fuwadesserts.com",
   app_metadata: {},
   user_metadata: {},
   aud: "authenticated",
@@ -16,7 +16,7 @@ const adminUser = {
 
 const adminProfile = {
   id: "admin-1",
-  email: "admin@cafemocha.com",
+  email: "admin@fuwadesserts.com",
   full_name: "Admin One",
   role: "admin",
   is_active: true,
@@ -119,7 +119,7 @@ afterEach(() => {
 describe("Admin Users Management — Delete User & Account Protection", () => {
   const staffUser = {
     id: "staff-1",
-    email: "barista@cafemocha.com",
+    email: "barista@fuwadesserts.com",
     full_name: "John Barista",
     role: "staff",
     is_active: true,
@@ -127,7 +127,7 @@ describe("Admin Users Management — Delete User & Account Protection", () => {
 
   const secondAdminUser = {
     id: "admin-2",
-    email: "owner@cafemocha.com",
+    email: "owner@fuwadesserts.com",
     full_name: "Owner Admin",
     role: "admin",
     is_active: true,
@@ -209,7 +209,7 @@ describe("Admin Users Management — Delete User & Account Protection", () => {
     await waitFor(() => {
       expect(baseElement.textContent).toContain("Delete User Account?");
       expect(baseElement.textContent).toContain("John Barista");
-      expect(baseElement.textContent).toContain("barista@cafemocha.com");
+      expect(baseElement.textContent).toContain("barista@fuwadesserts.com");
       expect(baseElement.textContent).toContain("will immediately lose access to the application");
       expect(baseElement.textContent).toContain("This action is permanent and cannot be undone");
       expect(baseElement.textContent).toContain("Historical Data Intact");
@@ -315,7 +315,7 @@ describe("Admin Users Management — Delete User & Account Protection", () => {
     // admin-1 is deactivated and soleAdmin is the only active admin.
     const soleAdmin = {
       id: "admin-sole",
-      email: "sole@cafemocha.com",
+      email: "sole@fuwadesserts.com",
       full_name: "Sole Active Admin",
       role: "admin",
       is_active: true,
@@ -407,7 +407,7 @@ describe("Admin Users Management — Delete User & Account Protection", () => {
           order: vi.fn().mockResolvedValue({
             data: [
               adminProfile,
-              { id: "staff-1", email: "barista@cafemocha.com", full_name: "John Barista", role: "staff", is_active: false },
+              { id: "staff-1", email: "barista@fuwadesserts.com", full_name: "John Barista", role: "staff", is_active: false },
             ],
             error: null,
           }),

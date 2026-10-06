@@ -77,7 +77,17 @@ export function Header() {
           className="group flex min-w-0 items-center gap-2.5 transition-transform active:scale-98"
         >
           <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-fuwa-surface p-1 shadow-card ring-1 ring-fuwa-orange/30 transition-all group-hover:scale-105">
-            <img src="/logo.png" alt="FUWA Japanese Fluffy Desserts" className="size-full object-contain" />
+            <img
+              src="/logo-sm.png"
+              srcSet="/logo-sm.png 128w, /logo-md.png 256w, /logo-lg.png 512w"
+              sizes="(max-width: 640px) 40px, (max-width: 1024px) 44px, 48px"
+              width="40"
+              height="40"
+              alt="FUWA Japanese Fluffy Desserts"
+              loading="eager"
+              decoding="async"
+              className="size-full object-contain"
+            />
           </div>
           <div className="min-w-0 leading-tight">
             <div className="flex items-baseline gap-1.5">

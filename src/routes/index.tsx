@@ -132,6 +132,11 @@ function Billing() {
   const onComplete = async () => {
     if (cart.length === 0 || isSubmittingOrder) return;
 
+    if (profile && !profile.is_active) {
+      toast.error("Your staff account is deactivated. You cannot submit orders.");
+      return;
+    }
+
     // Validate phone number: if provided, must be strictly 10 digits
     const cleanedPhone = customerPhone.trim();
     if (cleanedPhone.length > 0 && cleanedPhone.length !== 10) {
@@ -161,8 +166,9 @@ function Billing() {
         setPhoneError(null);
         setCartOpen(false);
       }
-    } catch {
-      toast.error("Failed to complete order. Please try again.");
+    } catch (err: any) {
+      const msg = err?.message || "Failed to complete order. Please try again.";
+      toast.error(msg);
     }
   };
 

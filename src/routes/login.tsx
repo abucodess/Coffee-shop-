@@ -22,7 +22,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, loading: authLoading, signIn, isConfigured } = useAuth();
+  const { user, profile, loading: authLoading, signIn, isConfigured } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -35,8 +35,8 @@ function LoginPage() {
     password?: string | undefined;
   }>({});
 
-  // If already authenticated, redirect to counter home
-  if (user) {
+  // If already authenticated with active account, redirect to counter home
+  if (user && profile?.is_active) {
     return <Navigate to="/" replace />;
   }
 
@@ -46,7 +46,11 @@ function LoginPage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-fuwa-cream px-4 text-center">
         <div className="relative flex size-16 items-center justify-center rounded-2xl bg-fuwa-surface p-2 shadow-card ring-1 ring-fuwa-orange/30">
           <img
-            src="/logo.png"
+            src="/logo-sm.png"
+            srcSet="/logo-sm.png 128w, /logo-md.png 256w"
+            sizes="64px"
+            width="64"
+            height="64"
             alt="FUWA Japanese Fluffy Desserts"
             className="size-12 object-contain animate-pulse"
           />
@@ -117,8 +121,18 @@ function LoginPage() {
 
         {/* Top Branding */}
         <div className="relative z-10 flex items-center gap-3.5">
-          <div className="grid size-12 place-items-center rounded-2xl bg-fuwa-surface p-1.5 shadow-card ring-1 ring-fuwa-orange/30">
-            <img src="/logo.png" alt="FUWA Japanese Fluffy Desserts" className="size-full object-contain" />
+          <div className="grid size-12 place-items-center rounded-2xl bg-fuwa-surface p-1.5 shadow-card ring-1 ring-fuwa-orange/30 sm:size-14">
+            <img
+              src="/logo-md.png"
+              srcSet="/logo-sm.png 128w, /logo-md.png 256w, /logo-lg.png 512w"
+              sizes="(max-width: 640px) 48px, (max-width: 1024px) 56px, 64px"
+              width="56"
+              height="56"
+              alt="FUWA Japanese Fluffy Desserts"
+              loading="eager"
+              decoding="async"
+              className="size-full object-contain"
+            />
           </div>
           <div>
             <div className="flex items-baseline gap-2">

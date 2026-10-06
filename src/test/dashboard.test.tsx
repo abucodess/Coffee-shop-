@@ -11,7 +11,7 @@ import { type Order } from "@/lib/pos-data";
 function mockAuthAdmin() {
   const adminUser = {
     id: "admin-1",
-    email: "admin@cafemocha.com",
+    email: "admin@fuwadesserts.com",
     app_metadata: {},
     user_metadata: {},
     aud: "authenticated",
@@ -20,7 +20,7 @@ function mockAuthAdmin() {
 
   const adminProfile = {
     id: "admin-1",
-    email: "admin@cafemocha.com",
+    email: "admin@fuwadesserts.com",
     full_name: "Head Barista",
     role: "admin",
     is_active: true,
@@ -349,7 +349,7 @@ describe("Dashboard Page Integration", () => {
   it("restricts staff users from accessing /dashboard and shows Access Restricted", async () => {
     const staffUser = {
       id: "staff-2",
-      email: "staff2@cafemocha.com",
+      email: "staff2@fuwadesserts.com",
       app_metadata: {},
       user_metadata: {},
       aud: "authenticated",
@@ -357,7 +357,7 @@ describe("Dashboard Page Integration", () => {
     };
     const staffProfile = {
       id: "staff-2",
-      email: "staff2@cafemocha.com",
+      email: "staff2@fuwadesserts.com",
       full_name: "Staff Barista",
       role: "staff",
       is_active: true,

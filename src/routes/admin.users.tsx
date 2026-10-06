@@ -85,7 +85,7 @@ function UsersManagement() {
         setProfiles([
           {
             id: currentUser?.id || "admin-mock-1",
-            email: currentUser?.email || "admin@cafemocha.com",
+            email: currentUser?.email || "admin@fuwadesserts.com",
             full_name: "Admin Manager",
             role: "admin",
             is_active: true,
@@ -390,7 +390,7 @@ function UsersManagement() {
             User Management
           </h1>
           <p className="mt-0.5 text-sm text-ink-soft">
-            Manage café counter staff, baristas, and administrator permissions.
+            Manage FUWA dessert counter staff and administrator permissions.
           </p>
         </div>
 
@@ -803,7 +803,7 @@ function UsersManagement() {
                       setFieldErrors((prev) => ({ ...prev, email: undefined }));
                     }
                   }}
-                  placeholder="staff@cafemocha.com"
+                  placeholder="staff@fuwadesserts.com"
                   className={`w-full rounded-xl border bg-cream/40 px-3.5 py-2 text-sm font-medium text-ink transition-colors placeholder:text-ink-soft/50 focus:outline-hidden focus:ring-2 disabled:opacity-60 ${
                     fieldErrors.email
                       ? "border-tomato focus:ring-tomato/20"
@@ -871,7 +871,7 @@ function UsersManagement() {
                   <span>Role: Staff</span>
                 </div>
                 <div className="mt-0.5">
-                  Created accounts receive 'staff' role automatically. They cannot create accounts or alter café menu pricing.
+                  Created accounts receive 'staff' role automatically. They cannot create accounts or alter FUWA menu pricing.
                 </div>
               </div>
 

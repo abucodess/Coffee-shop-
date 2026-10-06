@@ -37,7 +37,7 @@ export interface PosState {
   error: string | null;
 }
 
-const STORAGE_KEY = "mocha-counter-pos-v1";
+const STORAGE_KEY = "fuwa-counter-pos-v1";
 
 function loadInitialState(): PosState {
   let menu = DEFAULT_MENU;
@@ -48,7 +48,9 @@ function loadInitialState(): PosState {
 
   try {
     if (typeof localStorage !== "undefined") {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw =
+        localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem("mocha-counter-pos-v1");
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.menu && Array.isArray(parsed.menu)) menu = parsed.menu;

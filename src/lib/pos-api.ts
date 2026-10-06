@@ -182,7 +182,7 @@ export async function deleteCategoryInDb(categoryIdOrName: string): Promise<void
       .join(", ");
     const more = products.length > 3 ? ` and ${products.length - 3} more` : "";
     throw new Error(
-      `Cannot delete category "${catName}": ${products.length} product${products.length > 1 ? "s" : ""} (${names}${more}) still belong to this category. Please reassign or delete these items first.`,
+      `Cannot delete category "${catName}": ${products.length} product${products.length > 1 ? "s" : ""} (${names}${more}) still belong to it. Please reassign or delete these items first.`,
     );
   }
 
@@ -437,7 +437,7 @@ export async function fetchOrders(): Promise<Order[]> {
   return data.map((o: any) => {
     const subtotal = Number(o.subtotal);
     const invoiceNum = o.order_number
-      ? `MC-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
+      ? `FUWA-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
       : undefined;
 
     return {
@@ -520,12 +520,31 @@ export async function createOrder(
     : `A-${Date.now().toString().slice(-3)}`;
 
   const currentYear = new Date().getFullYear();
-  const invoiceNumber = `MC-${currentYear}-${orderNumber.replace(/^A-/, "").padStart(3, "0")}`;
+  const invoiceNumber = `FUWA-${currentYear}-${orderNumber.replace(/^A-/, "").padStart(3, "0")}`;
 
   const cleanCustomerName = customerName?.trim() || undefined;
   const cleanCustomerPhone = customerPhone?.trim() || undefined;
 
   if (isSupabaseConfigured) {
+    // Security check: verify current authenticated user is active
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_active")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (profile && profile.is_active === false) {
+        await supabase.auth.signOut();
+        throw new Error(
+          "Staff account is deactivated. You cannot submit orders.",
+        );
+      }
+    }
+
     // 1. Insert order record
     const orderPayload: any = {
       id: orderId,
@@ -637,6 +656,24 @@ export async function createOrder(
  */
 export async function cancelOrderInDb(orderId: string): Promise<void> {
   if (!isSupabaseConfigured) return;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_active")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    if (profile && profile.is_active === false) {
+      await supabase.auth.signOut();
+      throw new Error(
+        "Staff account is deactivated. You cannot cancel orders.",
+      );
+    }
+  }
 
   const { error } = await supabase
     .from("orders")
@@ -758,7 +795,7 @@ export async function fetchOrdersByRange(
     };
     const subtotal = Number(o.subtotal);
     const invoiceNum = o.order_number
-      ? `MC-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
+      ? `FUWA-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
       : undefined;
 
     return {

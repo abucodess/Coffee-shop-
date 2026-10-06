@@ -1,4 +1,4 @@
--- Supabase Schema for Mocha Counter POS
+-- Supabase Schema for FUWA Japanese Fluffy Desserts POS
 -- Run this in your Supabase SQL Editor
 
 -- ============================================================
@@ -42,6 +42,26 @@ as $$
   select coalesce(
     (
       select role = 'admin' and is_active = true
+      from public.profiles
+      where id = auth.uid()
+    ),
+    false
+  );
+$$;
+
+-- ============================================================
+-- Helper: check if current user has active status (SECURITY DEFINER)
+-- ============================================================
+create or replace function public.is_active_user()
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select coalesce(
+    (
+      select is_active = true
       from public.profiles
       where id = auth.uid()
     ),
@@ -303,20 +323,20 @@ drop policy if exists "Allow authenticated update orders" on public.orders;
 create policy "Allow authenticated read orders"
   on public.orders for select
   to authenticated
-  using (true);
+  using (public.is_active_user());
 
 create policy "Allow authenticated insert orders"
   on public.orders for insert
   to authenticated
-  with check (true);
+  with check (public.is_active_user());
 
 create policy "Allow authenticated update orders"
   on public.orders for update
   to authenticated
-  using (true)
-  with check (true);
+  using (public.is_active_user())
+  with check (public.is_active_user());
 
--- Order items: Authenticated can read and insert
+-- Order items: Only active authenticated users can read and insert
 drop policy if exists "Allow public read on order_items" on public.order_items;
 drop policy if exists "Allow public insert on order_items" on public.order_items;
 drop policy if exists "Allow authenticated and anon read order_items" on public.order_items;
@@ -327,21 +347,22 @@ drop policy if exists "Allow authenticated insert order_items" on public.order_i
 create policy "Allow authenticated read order_items"
   on public.order_items for select
   to authenticated
-  using (true);
+  using (public.is_active_user());
 
 create policy "Allow authenticated insert order_items"
   on public.order_items for insert
   to authenticated
-  with check (true);
+  with check (public.is_active_user());
 
 -- ============================================================
 -- 7. Supabase Realtime Publication
 -- ============================================================
--- Enables live synchronization so menu and order changes appear
--- instantly across all cashier/staff screens without manual refresh.
+-- Enables live synchronization so menu, order, and staff status
+-- changes appear instantly across all cashier/staff screens without manual refresh.
 alter publication supabase_realtime add table public.categories;
 alter publication supabase_realtime add table public.products;
 alter publication supabase_realtime add table public.orders;
+alter publication supabase_realtime add table public.profiles;
 
 -- ============================================================
 -- INITIAL ADMIN SETUP INSTRUCTIONS
@@ -355,7 +376,7 @@ alter publication supabase_realtime add table public.orders;
 --
 --    UPDATE public.profiles
 --    SET role = 'admin', is_active = true
---    WHERE email = 'your-admin-email@cafemocha.com';
+--    WHERE email = 'your-admin-email@fuwadesserts.com';
 --
 -- 3. You can now log in at /login with this admin account
 --    and manage staff from /admin/users.

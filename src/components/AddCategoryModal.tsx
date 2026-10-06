@@ -98,7 +98,7 @@ export function AddCategoryModal({
                 Add Category
               </h2>
               <p className="text-xs text-ink-soft mt-0.5">
-                Organize your café food & drink offerings.
+                Organize your FUWA dessert offerings.
               </p>
             </div>
           </div>

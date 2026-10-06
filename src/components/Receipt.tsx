@@ -20,7 +20,7 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
 
   const invoiceNumber =
     order.invoiceNumber ||
-    `MC-${date.getFullYear()}-${order.number.replace(/^A-/, "").padStart(3, "0")}`;
+    `FUWA-${date.getFullYear()}-${order.number.replace(/^A-/, "").padStart(3, "0")}`;
 
   const discount = order.discount || 0;
   const amountInWords = numberToIndianWords(order.total);
@@ -74,6 +74,19 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
         >
           {/* Business Header */}
           <div className="text-center leading-tight">
+            <div className="mb-2 flex justify-center">
+              <img
+                src="/logo-sm.png"
+                srcSet="/logo-sm.png 128w, /logo-md.png 256w"
+                sizes="48px"
+                width="48"
+                height="48"
+                alt="FUWA Japanese Fluffy Desserts"
+                className="size-12 object-contain"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
             <div className="text-lg font-black tracking-wider text-fuwa-orange">
               {SHOP_INFO.name}
             </div>
