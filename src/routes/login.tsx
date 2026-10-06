@@ -1,20 +1,20 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2, Lock, Mail, AlertCircle, Coffee } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, AlertCircle, Sparkles } from "lucide-react";
 import { useAuth } from "@/auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign In — Mocha Counter POS" },
+      { title: "Sign In — FUWA Japanese Fluffy Desserts POS" },
       {
         name: "description",
-        content: "Sign in to your Mocha Counter point of sale.",
+        content: "Sign in to the FUWA Japanese Fluffy Desserts counter POS.",
       },
-      { property: "og:title", content: "Sign In — Mocha Counter POS" },
+      { property: "og:title", content: "Sign In — FUWA Japanese Fluffy Desserts POS" },
       {
         property: "og:description",
-        content: "Sign in to your Mocha Counter point of sale.",
+        content: "Sign in to the FUWA Japanese Fluffy Desserts counter POS.",
       },
     ],
   }),
@@ -30,7 +30,10 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string | undefined;
+    password?: string | undefined;
+  }>({});
 
   // If already authenticated, redirect to counter home
   if (user) {
@@ -40,17 +43,17 @@ function LoginPage() {
   // Loading existing session
   if (authLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 text-center">
-        <div className="relative flex size-14 items-center justify-center rounded-2xl bg-coffee shadow-card">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-fuwa-cream px-4 text-center">
+        <div className="relative flex size-16 items-center justify-center rounded-2xl bg-fuwa-surface p-2 shadow-card ring-1 ring-fuwa-orange/30">
           <img
             src="/logo.png"
-            alt="Mocha Counter"
-            className="size-10 object-contain animate-pulse"
+            alt="FUWA Japanese Fluffy Desserts"
+            className="size-12 object-contain animate-pulse"
           />
         </div>
         <div className="mt-4 space-y-1">
-          <div className="text-lg font-extrabold tracking-tight text-ink">Mocha Counter</div>
-          <div className="font-mono text-xs text-ink-soft">Checking counter session…</div>
+          <div className="text-xl font-black tracking-tight text-fuwa-brown">FUWA</div>
+          <div className="font-mono text-xs text-fuwa-brown/65">Checking counter session…</div>
         </div>
       </div>
     );
@@ -99,94 +102,99 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-cream text-ink lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-fuwa-cream text-fuwa-brown lg:flex-row">
       {/* Decorative / Brand Visual Section */}
-      <div className="relative flex flex-col justify-between overflow-hidden bg-coffee px-6 py-10 text-cream sm:px-10 lg:w-1/2 lg:min-h-screen lg:p-14">
-        {/* Subtle Café Ambient Pattern */}
+      <div className="relative flex flex-col justify-between overflow-hidden bg-fuwa-brown px-6 py-10 text-fuwa-cream sm:px-10 lg:w-1/2 lg:min-h-screen lg:p-14">
+        {/* Subtle Ambient Glow */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-amber/10 blur-3xl"
+          className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-fuwa-orange/20 blur-3xl"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 -left-24 size-96 rounded-full bg-ink/40 blur-2xl"
+          className="pointer-events-none absolute -bottom-24 -left-24 size-96 rounded-full bg-black/40 blur-2xl"
         />
 
         {/* Top Branding */}
         <div className="relative z-10 flex items-center gap-3.5">
-          <div className="grid size-12 place-items-center rounded-2xl bg-paper/10 p-1.5 ring-1 ring-white/15 backdrop-blur-xs">
-            <img src="/logo.png" alt="Mocha Counter Emblem" className="size-full object-contain" />
+          <div className="grid size-12 place-items-center rounded-2xl bg-fuwa-surface p-1.5 shadow-card ring-1 ring-fuwa-orange/30">
+            <img src="/logo.png" alt="FUWA Japanese Fluffy Desserts" className="size-full object-contain" />
           </div>
           <div>
-            <div className="text-xl font-black tracking-tight text-paper">Mocha Counter</div>
-            <div className="font-mono text-[11px] font-semibold text-cream/70">
-              Front of House POS
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black tracking-tight text-white">FUWA</span>
+              <span className="text-xs font-black uppercase tracking-widest text-fuwa-orange">
+                ふわふわ
+              </span>
+            </div>
+            <div className="font-mono text-[11px] font-semibold text-fuwa-cream/70">
+              Japanese Fluffy Desserts · POS Counter
             </div>
           </div>
         </div>
 
         {/* Center café showcase - visible on desktop & tablet */}
         <div className="relative z-10 my-10 hidden space-y-6 lg:block">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-3.5 py-1 text-xs font-semibold text-amber">
-            <Coffee className="size-3.5" />
-            <span>Barista & Counter Station</span>
+          <div className="inline-flex items-center gap-2 rounded-full border border-fuwa-orange/30 bg-fuwa-orange/15 px-3.5 py-1 text-xs font-extrabold text-fuwa-orange-bright">
+            <Sparkles className="size-3.5 text-fuwa-orange" />
+            <span>Artisan Dessert Station</span>
           </div>
 
-          <h1 className="max-w-md text-3xl font-black leading-tight tracking-tight text-paper sm:text-4xl">
-            Simple. Fast. Made for Coffee Shops.
+          <h1 className="max-w-md text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">
+            Fluffy, Warm & Handcrafted.
           </h1>
 
-          <p className="max-w-md text-sm leading-relaxed text-cream/80">
-            Speed through morning rushes with intuitive one-touch billing, instant item
-            modifiers, live sales analytics, and reliable Supabase-powered counter sync.
+          <p className="max-w-md text-sm leading-relaxed text-fuwa-cream/80">
+            High-speed tablet billing for Japanese Soufflé Pancakes, Dorayaki, ceremonial matcha,
+            and specialty desserts with live inventory, thermal receipts, and real-time syncing.
           </p>
 
           <div className="grid max-w-sm grid-cols-2 gap-3 pt-2 font-mono text-xs">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-xs">
-              <div className="text-lg font-bold text-amber">₹0 Friction</div>
-              <div className="mt-0.5 text-cream/70">One-tap order entry</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs">
+              <div className="text-lg font-black text-fuwa-orange">Touch-First</div>
+              <div className="mt-0.5 text-fuwa-cream/70">Fast counter workflow</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-xs">
-              <div className="text-lg font-bold text-paper">Instant</div>
-              <div className="mt-0.5 text-cream/70">Digital & cash receipts</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs">
+              <div className="text-lg font-black text-white">Instant</div>
+              <div className="mt-0.5 text-fuwa-cream/70">Thermal bills & reports</div>
             </div>
           </div>
         </div>
 
         {/* Mobile-only tagline */}
         <div className="relative z-10 mt-6 lg:hidden">
-          <p className="text-sm font-semibold text-cream/80">
-            Simple. Fast. Made for Coffee Shops.
+          <p className="text-sm font-semibold text-fuwa-cream/80">
+            Touch-friendly POS for Japanese Fluffy Desserts.
           </p>
         </div>
 
         {/* Footer info */}
-        <div className="relative z-10 pt-4 font-mono text-xs text-cream/60">
-          <div>Mocha Counter POS · Secured with Supabase Auth</div>
+        <div className="relative z-10 pt-4 font-mono text-xs text-fuwa-cream/60">
+          <div>FUWA Japanese Fluffy Desserts POS · Secured with Supabase</div>
         </div>
       </div>
 
       {/* Login Card Section */}
       <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8 lg:p-14">
-        <div className="w-full max-w-md space-y-6 rounded-3xl border border-ink/10 bg-paper/90 p-6 sm:p-8 shadow-card-lg backdrop-blur-xs">
+        <div className="w-full max-w-md space-y-6 rounded-3xl border border-fuwa-brown/10 bg-fuwa-surface p-6 sm:p-8 shadow-card-lg backdrop-blur-xs">
           {/* Header */}
           <div className="space-y-1.5">
-            <div className="font-mono text-xs font-bold uppercase tracking-wider text-amber-deep">
+            <div className="font-mono text-xs font-bold uppercase tracking-wider text-fuwa-orange">
               Counter Access
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">
+            <h2 className="text-2xl font-black tracking-tight text-fuwa-brown sm:text-3xl">
               Welcome back
             </h2>
-            <p className="text-sm text-ink-soft">
-              Sign in to continue to your counter and start taking orders.
+            <p className="text-xs sm:text-sm text-fuwa-brown/65">
+              Sign in to start billing orders on the counter tablet.
             </p>
           </div>
 
           {/* Offline / Supabase Not Configured Warning */}
           {!isConfigured && (
-            <div className="rounded-xl border border-amber/40 bg-lemon/60 p-3.5 text-xs text-ink">
-              <div className="font-bold text-amber-deep">Setup Note:</div>
-              <div>
+            <div className="rounded-xl border border-fuwa-orange/30 bg-fuwa-cream/50 p-3.5 text-xs text-fuwa-brown">
+              <div className="font-bold text-fuwa-orange">Setup Note:</div>
+              <div className="mt-0.5 text-fuwa-brown/80">
                 Supabase credentials are not detected in your environment. Provide valid{" "}
                 <code className="font-mono text-[11px] font-bold">VITE_SUPABASE_URL</code> and{" "}
                 <code className="font-mono text-[11px] font-bold">VITE_SUPABASE_ANON_KEY</code> to
@@ -199,9 +207,9 @@ function LoginPage() {
           {error && (
             <div
               role="alert"
-              className="flex items-start gap-3 rounded-xl border border-tomato/30 bg-tomato/10 p-3.5 text-sm text-tomato"
+              className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 font-bold"
             >
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" />
               <div className="flex-1 font-medium">{error}</div>
             </div>
           )}
@@ -212,12 +220,12 @@ function LoginPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
-                className="block text-xs font-bold uppercase tracking-wider text-ink"
+                className="block text-xs font-bold uppercase tracking-wider text-fuwa-brown"
               >
                 Email
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-ink-soft">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-fuwa-brown/50">
                   <Mail className="size-4" />
                 </div>
                 <input
@@ -234,16 +242,16 @@ function LoginPage() {
                       setFieldErrors((prev) => ({ ...prev, email: undefined }));
                     }
                   }}
-                  placeholder="barista@cafemocha.com"
-                  className={`w-full rounded-xl border bg-paper py-2.5 pl-10 pr-3.5 font-medium text-ink transition-all placeholder:text-ink-soft/50 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  placeholder="staff@fuwadesserts.com"
+                  className={`w-full rounded-xl border bg-fuwa-surface py-2.5 pl-10 pr-3.5 font-medium text-fuwa-brown transition-all placeholder:text-fuwa-brown/40 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                     fieldErrors.email
-                      ? "border-tomato focus:border-tomato focus:ring-tomato/20"
-                      : "border-ink/20 focus:border-coffee focus:ring-amber/30"
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                      : "border-fuwa-brown/20 focus:border-fuwa-orange focus:ring-fuwa-orange/20"
                   }`}
                 />
               </div>
               {fieldErrors.email && (
-                <p className="font-mono text-xs font-medium text-tomato">
+                <p className="font-mono text-xs font-medium text-red-600">
                   {fieldErrors.email}
                 </p>
               )}
@@ -253,12 +261,12 @@ function LoginPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="password"
-                className="block text-xs font-bold uppercase tracking-wider text-ink"
+                className="block text-xs font-bold uppercase tracking-wider text-fuwa-brown"
               >
                 Password
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-ink-soft">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-fuwa-brown/50">
                   <Lock className="size-4" />
                 </div>
                 <input
@@ -275,10 +283,10 @@ function LoginPage() {
                     }
                   }}
                   placeholder="••••••••"
-                  className={`w-full rounded-xl border bg-paper py-2.5 pl-10 pr-10 font-medium text-ink transition-all placeholder:text-ink-soft/50 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`w-full rounded-xl border bg-fuwa-surface py-2.5 pl-10 pr-10 font-medium text-fuwa-brown transition-all placeholder:text-fuwa-brown/40 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                     fieldErrors.password
-                      ? "border-tomato focus:border-tomato focus:ring-tomato/20"
-                      : "border-ink/20 focus:border-coffee focus:ring-amber/30"
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                      : "border-fuwa-brown/20 focus:border-fuwa-orange focus:ring-fuwa-orange/20"
                   }`}
                 />
                 <button
@@ -286,7 +294,7 @@ function LoginPage() {
                   tabIndex={0}
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-ink-soft hover:text-ink focus:outline-hidden"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-fuwa-brown/50 hover:text-fuwa-brown focus:outline-hidden"
                 >
                   {showPassword ? (
                     <EyeOff className="size-4" />
@@ -296,7 +304,7 @@ function LoginPage() {
                 </button>
               </div>
               {fieldErrors.password && (
-                <p className="font-mono text-xs font-medium text-tomato">
+                <p className="font-mono text-xs font-medium text-red-600">
                   {fieldErrors.password}
                 </p>
               )}
@@ -307,11 +315,11 @@ function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting || authLoading}
-                className="relative flex w-full items-center justify-center gap-2 rounded-xl bg-coffee px-4 py-3 text-sm font-bold text-paper shadow-card transition-all hover:bg-ink active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className="relative flex w-full items-center justify-center gap-2 rounded-xl bg-fuwa-orange px-4 py-3 text-sm font-extrabold text-white shadow-card transition-all hover:bg-fuwa-orange-bright active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="size-4 animate-spin text-amber" />
+                    <Loader2 className="size-4 animate-spin text-white" />
                     <span>Signing in to counter…</span>
                   </>
                 ) : (
@@ -322,8 +330,8 @@ function LoginPage() {
           </form>
 
           {/* Quick Info */}
-          <div className="rounded-xl border border-ink/10 bg-paper/60 p-4 text-center font-mono text-xs text-ink-soft">
-            <span className="font-bold text-ink">Mocha Counter POS</span> · Staff & Barista Station
+          <div className="rounded-xl border border-fuwa-brown/10 bg-fuwa-cream/40 p-3.5 text-center font-mono text-xs text-fuwa-brown/65">
+            <span className="font-bold text-fuwa-brown">FUWA POS</span> · Front of House Counter
           </div>
         </div>
       </div>

@@ -27,10 +27,10 @@ function ProtectedMenuPage() {
 export const Route = createFileRoute("/menu")({
   head: () => ({
     meta: [
-      { title: "Menu — Mocha Counter POS" },
-      { name: "description", content: "Manage menu items, prices and stock availability." },
-      { property: "og:title", content: "Menu — Mocha Counter POS" },
-      { property: "og:description", content: "Manage menu items, prices and stock availability." },
+      { title: "Menu — FUWA Japanese Fluffy Desserts" },
+      { name: "description", content: "Manage dessert menu items, prices and stock availability for FUWA." },
+      { property: "og:title", content: "Menu — FUWA Japanese Fluffy Desserts" },
+      { property: "og:description", content: "Manage dessert menu items, prices and stock availability for FUWA." },
     ],
   }),
   component: ProtectedMenuPage,
@@ -108,7 +108,7 @@ function MenuPage() {
     name: "",
     note: "",
     price: 0,
-    category: defaultCategory || (categories[0]?.name ?? "Espresso"),
+    category: defaultCategory || (categories[0]?.name ?? "Japanese Soufflé Pancakes"),
     color: "lemon",
     available: true,
   });
@@ -160,30 +160,30 @@ function MenuPage() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Menu</h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            Manage menu items, prices, stock availability, and food categories.
+          <h1 className="text-2xl font-black tracking-tight text-fuwa-brown sm:text-3xl">Menu Management</h1>
+          <p className="mt-1 text-xs sm:text-sm text-fuwa-brown/65">
+            Manage dessert menu items, prices, stock availability, and food categories.
           </p>
           {(menuLoading || categoriesLoading) && (
-            <p className="mt-1 font-mono text-xs text-ink-soft">Syncing menu with Supabase…</p>
+            <p className="mt-1 font-mono text-xs text-fuwa-brown/60">Syncing menu with database…</p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={() => setIsAddCategoryOpen(true)}
-            className="press flex items-center gap-2 rounded-xl border border-ink/15 bg-paper px-4 py-3 text-sm font-extrabold text-coffee shadow-card hover:bg-cream/60 transition-colors"
+            className="press flex items-center gap-2 rounded-xl border border-fuwa-brown/15 bg-fuwa-surface px-4 py-2.5 text-xs font-extrabold text-fuwa-brown shadow-xs hover:bg-fuwa-cream/50 transition-colors"
           >
-            <FolderPlus className="size-4 text-coffee" />
+            <FolderPlus className="size-4 text-fuwa-orange" />
             <span>+ Add category</span>
           </button>
           <button
             onClick={() => setEditing(blank())}
-            className="press flex items-center gap-2 rounded-xl bg-amber px-5 py-3 text-sm font-extrabold text-coffee shadow-card hover:brightness-105 transition-all"
+            className="press flex items-center gap-2 rounded-xl bg-fuwa-orange px-5 py-2.5 text-xs font-extrabold text-white shadow-card hover:bg-fuwa-orange-bright transition-all"
           >
             <Plus className="size-4 stroke-[3]" />
             <span>+ Add item</span>

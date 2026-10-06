@@ -32,15 +32,15 @@ function UsersManagementPage() {
 export const Route = createFileRoute("/admin/users")({
   head: () => ({
     meta: [
-      { title: "User Management — Mocha Counter POS" },
+      { title: "Staff & Users — FUWA Japanese Fluffy Desserts" },
       {
         name: "description",
-        content: "Manage café counter staff and administrator permissions.",
+        content: "Manage FUWA dessert counter staff and administrator permissions.",
       },
-      { property: "og:title", content: "User Management — Mocha Counter POS" },
+      { property: "og:title", content: "Staff & Users — FUWA Japanese Fluffy Desserts" },
       {
         property: "og:description",
-        content: "Manage café counter staff and administrator permissions.",
+        content: "Manage FUWA dessert counter staff and administrator permissions.",
       },
     ],
   }),
@@ -72,9 +72,9 @@ function UsersManagement() {
   const [isCreating, setIsCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{
-    fullName?: string;
-    email?: string;
-    password?: string;
+    fullName?: string | undefined;
+    email?: string | undefined;
+    password?: string | undefined;
   }>({});
 
   const loadProfiles = async () => {

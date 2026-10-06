@@ -32,66 +32,90 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Café palette */
+  /* FUWA Official Japanese Fluffy Desserts Palette */
+  --color-fuwa-orange: var(--fuwa-orange);
+  --color-fuwa-orange-bright: var(--fuwa-orange-bright);
+  --color-fuwa-orange-light: var(--fuwa-orange-light);
+  --color-fuwa-cream: var(--fuwa-cream);
+  --color-fuwa-surface: var(--fuwa-surface);
+  --color-fuwa-peach: var(--fuwa-peach);
+  --color-fuwa-wood: var(--fuwa-wood);
+  --color-fuwa-brown: var(--fuwa-brown);
+  --color-fuwa-brown-soft: var(--fuwa-brown-soft);
+
+  /* Semantic aliases for consistent component styling */
   --color-white: #ffffff;
-  --color-cream: var(--cream);
-  --color-paper: var(--paper);
-  --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
-  --color-coffee: var(--coffee);
-  --color-amber: var(--amber);
-  --color-amber-deep: var(--amber-deep);
-  --color-tomato: var(--tomato);
+  --color-cream: var(--fuwa-cream);
+  --color-paper: var(--fuwa-surface);
+  --color-ink: var(--fuwa-brown);
+  --color-ink-soft: var(--fuwa-brown-soft);
+  --color-coffee: var(--fuwa-orange);
+  --color-amber: var(--fuwa-orange-bright);
+  --color-amber-deep: var(--fuwa-orange);
+  --color-tomato: var(--destructive);
   --color-mint: var(--mint);
-  --color-coral: var(--coral);
+  --color-coral: var(--fuwa-peach);
   --color-lemon: var(--lemon);
   --color-lilac: var(--lilac);
   --color-sky: var(--sky);
   --color-mint-soft: var(--mint-soft);
   --color-clay: var(--clay);
 
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Nunito", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "Space Mono", ui-monospace, monospace;
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  --cream: #f6f2e9;
-  --paper: #fffdf8;
-  --ink: #2b231a;
-  --ink-soft: #6f6252;
-  --coffee: #3d2e20;
-  --amber: #e9a13b;
-  --amber-deep: #b97a1a;
-  --tomato: #d6553f;
-  --mint: #2e8f6b;
-  --coral: #f6ddd0;
-  --lemon: #f7e6bd;
-  --lilac: #e6ddf2;
-  --sky: #d5e7ee;
-  --mint-soft: #d9ecdf;
-  --clay: #efd3b8;
+  /* FUWA Physical Store Exact Color Foundation */
+  --fuwa-orange: #b64608;
+  --fuwa-orange-bright: #d65f14;
+  --fuwa-orange-light: #e48c40;
+  --fuwa-cream: #f6e8d7;
+  --fuwa-surface: #fff9f2;
+  --fuwa-peach: #e3b27f;
+  --fuwa-wood: #a9693a;
+  --fuwa-brown: #2b1b12;
+  --fuwa-brown-soft: #634d3f;
 
-  --background: var(--cream);
-  --foreground: var(--ink);
-  --card: var(--paper);
-  --card-foreground: var(--ink);
-  --popover: var(--paper);
-  --popover-foreground: var(--ink);
-  --primary: var(--coffee);
-  --primary-foreground: var(--cream);
-  --secondary: var(--paper);
-  --secondary-foreground: var(--ink);
-  --muted: #ece5d6;
-  --muted-foreground: var(--ink-soft);
-  --accent: var(--amber);
-  --accent-foreground: var(--coffee);
-  --destructive: var(--tomato);
-  --destructive-foreground: var(--cream);
-  --border: color-mix(in oklab, var(--ink) 18%, transparent);
-  --input: color-mix(in oklab, var(--ink) 25%, transparent);
-  --ring: var(--amber);
+  /* UI Tokens */
+  --background: var(--fuwa-cream);
+  --foreground: var(--fuwa-brown);
+  --card: var(--fuwa-surface);
+  --card-foreground: var(--fuwa-brown);
+  --popover: var(--fuwa-surface);
+  --popover-foreground: var(--fuwa-brown);
+  --primary: var(--fuwa-orange);
+  --primary-foreground: #ffffff;
+  --secondary: var(--fuwa-surface);
+  --secondary-foreground: var(--fuwa-brown);
+  --muted: #eedcc9;
+  --muted-foreground: var(--fuwa-brown-soft);
+  --accent: var(--fuwa-orange-bright);
+  --accent-foreground: #ffffff;
+  --destructive: #c2381f;
+  --destructive-foreground: #ffffff;
+  --border: rgba(43, 27, 18, 0.12);
+  --input: rgba(43, 27, 18, 0.16);
+  --ring: var(--fuwa-orange);
+
+  /* Semantic color accents for category tiles & badges */
+  --cream: var(--fuwa-cream);
+  --paper: var(--fuwa-surface);
+  --ink: var(--fuwa-brown);
+  --ink-soft: var(--fuwa-brown-soft);
+  --coffee: var(--fuwa-orange);
+  --amber: var(--fuwa-orange-bright);
+  --amber-deep: var(--fuwa-orange);
+  --tomato: #c2381f;
+  --mint: #257d5c;
+  --coral: #f8dbcb;
+  --lemon: #f8e8c1;
+  --lilac: #ecdde8;
+  --sky: #dbe7ec;
+  --mint-soft: #ddeadf;
+  --clay: #e7cfba;
 }
 
 @layer base {
@@ -120,16 +144,17 @@
   }
 }
 
-/* Tactile card shadow — soft, professional take on the offset-shadow look */
+/* Tactile café shadows — subtle warm shadows */
 @utility shadow-card {
-  box-shadow:
-    0 1px 2px rgb(43 35 26 / 0.08),
-    0 4px 14px -4px rgb(43 35 26 / 0.12);
+  box-shadow: 0 4px 18px rgba(43, 27, 18, 0.08);
 }
 @utility shadow-card-lg {
   box-shadow:
-    0 2px 4px rgb(43 35 26 / 0.08),
-    0 12px 32px -8px rgb(43 35 26 / 0.16);
+    0 4px 24px rgba(43, 27, 18, 0.12),
+    0 1px 4px rgba(43, 27, 18, 0.06);
+}
+@utility shadow-card-sm {
+  box-shadow: 0 2px 8px rgba(43, 27, 18, 0.05);
 }
 @utility press {
   transition:
@@ -148,28 +173,29 @@
 }
 
 @utility nav-active {
-  background-color: var(--coffee) !important;
+  background-color: var(--fuwa-orange) !important;
   color: #ffffff !important;
 }
 
 @utility card-hover {
-  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+  transition:
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.16s ease;
   will-change: transform;
   &:hover {
     transform: translateY(-2px);
     box-shadow:
-      0 6px 20px -4px rgb(43 35 26 / 0.12),
-      0 2px 6px -1px rgb(43 35 26 / 0.08);
+      0 8px 24px -4px rgba(43, 27, 18, 0.12),
+      0 2px 6px -1px rgba(43, 27, 18, 0.06);
   }
 }
 
 @utility glass-panel {
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  background: color-mix(in srgb, var(--fuwa-surface) 92%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border: 1px solid rgba(43, 27, 18, 0.1);
 }
 
 @utility no-scrollbar {

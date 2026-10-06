@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Banknote, CreditCard, Phone, QrCode, Receipt, Search, User, X } from "lucide-react";
+import { Banknote, CreditCard, Phone, QrCode, Receipt, Search, User, X, ClipboardList } from "lucide-react";
 import { fmt, type Order } from "@/lib/pos-data";
 import { cancelOrder, usePos } from "@/lib/pos-store";
 
@@ -26,10 +26,10 @@ function ProtectedOrdersPage() {
 export const Route = createFileRoute("/orders")({
   head: () => ({
     meta: [
-      { title: "Orders — Mocha Counter POS" },
-      { name: "description", content: "Order history, receipts and cancellations." },
-      { property: "og:title", content: "Orders — Mocha Counter POS" },
-      { property: "og:description", content: "Order history, receipts and cancellations." },
+      { title: "Orders — FUWA Japanese Fluffy Desserts" },
+      { name: "description", content: "Order history, receipts and cancellations for FUWA." },
+      { property: "og:title", content: "Orders — FUWA Japanese Fluffy Desserts" },
+      { property: "og:description", content: "Order history, receipts and cancellations for FUWA." },
     ],
   }),
   component: ProtectedOrdersPage,
@@ -87,32 +87,34 @@ function OrdersPage() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
       {/* Top Header & Filter Controls */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-coffee">Orders</h1>
-            <span className="rounded-full bg-coffee/10 px-2.5 py-0.5 font-mono text-xs font-bold text-coffee">
+            <h1 className="text-2xl font-black tracking-tight text-fuwa-brown sm:text-3xl">
+              Order History
+            </h1>
+            <span className="rounded-full bg-fuwa-orange/15 px-3 py-1 font-mono text-xs font-black text-fuwa-orange">
               {orders.length} total
             </span>
           </div>
           {ordersLoading && (
-            <p className="mt-1 font-mono text-xs text-ink-soft">Syncing orders with Supabase…</p>
+            <p className="mt-1 font-mono text-xs text-fuwa-brown/60">Syncing orders…</p>
           )}
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 rounded-2xl border border-ink/10 bg-cream/70 p-1 shadow-xs">
+        <div className="flex items-center gap-1 rounded-2xl border border-fuwa-brown/10 bg-fuwa-surface p-1 shadow-xs">
           {(["all", "paid", "cancelled"] as const).map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
-              className={`press rounded-xl px-4 py-2 text-xs font-bold capitalize transition-all sm:text-sm ${
+              className={`press rounded-xl min-h-[38px] px-4 py-1.5 text-xs font-extrabold capitalize transition-all sm:text-sm ${
                 filter === f
-                  ? "bg-coffee text-cream shadow-card"
-                  : "text-ink-soft hover:text-ink hover:bg-cream"
+                  ? "bg-fuwa-orange text-white shadow-card"
+                  : "text-fuwa-brown/70 hover:text-fuwa-brown hover:bg-fuwa-cream/50"
               }`}
             >
               {f}
@@ -123,19 +125,19 @@ function OrdersPage() {
 
       {/* Quick Search Bar */}
       <div className="relative mb-6">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-soft" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fuwa-brown/50" />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by order #, customer, phone, cashier, payment, or item…"
-          className="w-full rounded-2xl border border-ink/15 bg-paper py-2.5 pl-10 pr-10 text-sm font-medium text-ink placeholder:text-ink-soft/70 shadow-xs focus:border-coffee focus:outline-none focus:ring-2 focus:ring-coffee/20"
+          className="w-full rounded-2xl border border-fuwa-brown/15 bg-fuwa-surface py-2.5 pl-10 pr-10 text-sm font-semibold text-fuwa-brown placeholder:text-fuwa-brown/40 shadow-xs focus:border-fuwa-orange focus:outline-none focus:ring-2 focus:ring-fuwa-orange/20 transition-all"
         />
         {search && (
           <button
             type="button"
             onClick={() => setSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-soft hover:bg-ink/10"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-fuwa-brown/60 hover:bg-fuwa-brown/10"
             aria-label="Clear search"
           >
             <X className="size-4" />
@@ -160,8 +162,8 @@ function OrdersPage() {
           return (
             <div
               key={o.id}
-              className={`card-hover flex flex-col justify-between rounded-2xl border bg-paper p-5 shadow-card transition-all ${
-                isPaid ? "border-ink/10" : "border-tomato/30 bg-tomato/5"
+              className={`flex flex-col justify-between rounded-2xl border bg-fuwa-surface p-4 sm:p-5 shadow-card transition-all ${
+                isPaid ? "border-fuwa-brown/10" : "border-red-200 bg-red-50/30"
               }`}
             >
               <div>
@@ -169,28 +171,28 @@ function OrdersPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-base font-black text-coffee">
+                      <span className="font-mono text-base font-black text-fuwa-orange">
                         #{o.number}
                       </span>
-                      <span className="flex items-center gap-1 rounded-md bg-cream px-2 py-0.5 font-mono text-[11px] font-semibold text-ink-soft">
+                      <span className="flex items-center gap-1 rounded-lg bg-fuwa-cream px-2 py-0.5 font-mono text-[11px] font-bold text-fuwa-brown/70">
                         {getPaymentIcon(o.payment)}
                         <span className="capitalize">{o.payment}</span>
                       </span>
                     </div>
-                    <div className="mt-1 text-xs font-medium text-ink-soft">
+                    <div className="mt-1 text-xs font-semibold text-fuwa-brown/60">
                       {dateStr} · {time} · {o.cashier || "Cashier"}
                     </div>
                     {(o.customerName || o.customerPhone) && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {o.customerName && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber/20 px-2 py-0.5 text-xs font-bold text-coffee">
-                            <User className="size-3 text-coffee/80" />
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-fuwa-cream px-2 py-0.5 text-xs font-extrabold text-fuwa-brown">
+                            <User className="size-3 text-fuwa-orange" />
                             <span className="truncate max-w-[140px]">{o.customerName}</span>
                           </span>
                         )}
                         {o.customerPhone && (
-                          <span className="inline-flex items-center gap-1 rounded-md border border-ink/10 bg-cream px-2 py-0.5 font-mono text-[11px] font-semibold text-ink-soft">
-                            <Phone className="size-3 text-ink-soft/70" />
+                          <span className="inline-flex items-center gap-1 rounded-lg border border-fuwa-brown/10 bg-fuwa-surface px-2 py-0.5 font-mono text-[11px] font-bold text-fuwa-brown/70">
+                            <Phone className="size-3 text-fuwa-brown/50" />
                             <span>{o.customerPhone}</span>
                           </span>
                         )}
@@ -201,16 +203,16 @@ function OrdersPage() {
                   <div className="text-right">
                     <div
                       className={`font-mono text-lg font-black leading-none ${
-                        !isPaid ? "line-through text-ink-soft" : "text-ink"
+                        !isPaid ? "line-through text-fuwa-brown/40" : "text-fuwa-brown"
                       }`}
                     >
                       {fmt(o.total)}
                     </div>
                     <span
-                      className={`mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
+                      className={`mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wide ${
                         isPaid
-                          ? "bg-mint-soft text-mint shadow-xs"
-                          : "bg-tomato/15 text-tomato shadow-xs"
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-500/20"
+                          : "bg-red-50 text-red-700 border border-red-500/20"
                       }`}
                     >
                       {isPaid ? "Paid" : "Cancelled"}
@@ -219,15 +221,17 @@ function OrdersPage() {
                 </div>
 
                 {/* Items breakdown list */}
-                <div className="mt-3.5 border-t border-dashed border-ink/10 pt-3">
-                  <div className="text-xs font-bold text-ink-soft">Items ({o.lines.reduce((s, l) => s + l.qty, 0)})</div>
+                <div className="mt-3.5 border-t border-dashed border-fuwa-brown/10 pt-3">
+                  <div className="text-xs font-extrabold text-fuwa-brown/70">
+                    Items ({o.lines.reduce((s, l) => s + l.qty, 0)})
+                  </div>
                   <div className="mt-1 space-y-1">
                     {o.lines.map((l, i) => (
-                      <div key={i} className="flex justify-between text-xs font-semibold text-ink">
+                      <div key={i} className="flex justify-between text-xs font-semibold text-fuwa-brown">
                         <span className="truncate pr-2">
-                          <span className="font-bold text-coffee">{l.qty}×</span> {l.name}
+                          <span className="font-extrabold text-fuwa-orange">{l.qty}×</span> {l.name}
                         </span>
-                        <span className="shrink-0 font-mono text-ink-soft">{fmt(l.price * l.qty)}</span>
+                        <span className="shrink-0 font-mono text-fuwa-brown/65">{fmt(l.price * l.qty)}</span>
                       </div>
                     ))}
                   </div>
@@ -235,21 +239,21 @@ function OrdersPage() {
               </div>
 
               {/* Action buttons */}
-              <div className="mt-5 flex gap-2 border-t border-ink/10 pt-3">
+              <div className="mt-5 flex gap-2 border-t border-fuwa-brown/10 pt-3">
                 <button
                   type="button"
                   onClick={() => setReceipt(o)}
-                  className="press flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-ink/15 bg-cream py-2.5 text-xs font-bold text-coffee shadow-xs transition-all hover:border-ink/30 hover:bg-cream/90"
+                  className="press flex flex-1 items-center justify-center gap-1.5 min-h-[42px] rounded-xl border border-fuwa-brown/15 bg-fuwa-cream py-2 text-xs font-extrabold text-fuwa-brown shadow-xs transition-all hover:bg-fuwa-cream/80"
                 >
-                  <Receipt className="size-3.5" />
-                  <span>Receipt</span>
+                  <Receipt className="size-3.5 text-fuwa-orange" />
+                  <span>View Receipt</span>
                 </button>
                 {isPaid && (
                   <button
                     type="button"
                     disabled={isCancelling}
                     onClick={() => setCancellingOrder(o)}
-                    className="press rounded-xl px-3.5 py-2.5 text-xs font-bold text-tomato transition-colors hover:bg-tomato/10 active:scale-[0.98] disabled:opacity-50"
+                    className="press min-h-[42px] rounded-xl px-4 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
                   >
                     {isCancelling ? "Cancelling…" : "Cancel"}
                   </button>
@@ -261,9 +265,19 @@ function OrdersPage() {
       </div>
 
       {list.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-ink/15 py-12 text-center">
-          <p className="text-sm font-medium text-ink-soft">
-            {ordersLoading ? "Loading orders…" : search ? "No orders found matching your search." : "No orders yet."}
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-fuwa-brown/15 bg-fuwa-surface/50 py-16 text-center">
+          <div className="grid size-12 place-items-center rounded-2xl bg-fuwa-cream text-fuwa-orange mb-3">
+            <ClipboardList className="size-6 text-fuwa-orange" />
+          </div>
+          <div className="text-base font-extrabold text-fuwa-brown">
+            {ordersLoading ? "Loading orders…" : search ? "No matching orders found" : "No orders yet"}
+          </div>
+          <p className="mt-1 text-xs text-fuwa-brown/65 max-w-sm">
+            {ordersLoading
+              ? "Fetching order records from storage…"
+              : search
+                ? "Try searching for a different customer name, phone number, or order ID."
+                : "New orders completed in the POS will appear here with instant receipt reprint options."}
           </p>
         </div>
       )}

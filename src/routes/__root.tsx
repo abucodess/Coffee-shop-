@@ -82,15 +82,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mocha Counter — Coffee Shop POS" },
+      { title: "FUWA — Japanese Fluffy Desserts POS" },
       {
         name: "description",
-        content: "Fast, touch-friendly point of sale and billing for a small coffee shop.",
+        content: "Touch-friendly tablet POS and billing for FUWA Japanese Fluffy Desserts.",
       },
-      { property: "og:title", content: "Mocha Counter — Coffee Shop POS" },
+      { property: "og:title", content: "FUWA — Japanese Fluffy Desserts POS" },
       {
         property: "og:description",
-        content: "Fast, touch-friendly point of sale and billing for a small coffee shop.",
+        content: "Touch-friendly tablet POS and billing for FUWA Japanese Fluffy Desserts.",
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: "/logo.png" },
@@ -105,7 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "dns-prefetch", href: "https://fgbcuzzmkgwmqbkynctr.supabase.co" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Space+Mono:wght@400;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap",
       },
       {
         rel: "stylesheet",

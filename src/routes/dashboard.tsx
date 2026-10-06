@@ -40,12 +40,12 @@ function DashboardPage() {
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Mocha Counter POS" },
-      { name: "description", content: "Sales analytics, revenue metrics and best-selling items." },
-      { property: "og:title", content: "Dashboard — Mocha Counter POS" },
+      { title: "Dashboard — FUWA Japanese Fluffy Desserts" },
+      { name: "description", content: "Sales analytics, revenue metrics and dessert performance for FUWA." },
+      { property: "og:title", content: "Dashboard — FUWA Japanese Fluffy Desserts" },
       {
         property: "og:description",
-        content: "Sales analytics, revenue metrics and best-selling items.",
+        content: "Sales analytics, revenue metrics and dessert performance for FUWA.",
       },
     ],
   }),
@@ -84,7 +84,7 @@ function Dashboard() {
   // Default custom range: past 7 days to today
   const [customStart, setCustomStart] = useState<string>(() => {
     const today = getShopTodayDateString();
-    const [y, m, d] = today.split("-").map(Number);
+    const [y = 2026, m = 1, d = 1] = today.split("-").map(Number);
     const prev = new Date(y, m - 1, d - 7);
     return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(prev.getDate()).padStart(2, "0")}`;
   });
@@ -286,15 +286,15 @@ function Dashboard() {
 
         {/* Date Filter Bar: Exactly the 5 requested options */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border border-ink/15 bg-paper p-1 text-xs font-bold shadow-card">
+          <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border border-fuwa-brown/15 bg-fuwa-surface p-1 text-xs font-bold shadow-xs">
             <button
               type="button"
               data-testid="filter-today"
               onClick={() => setFilterType("today")}
               className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "today"
-                  ? "bg-coffee text-cream shadow-xs"
-                  : "text-ink-soft hover:text-coffee hover:bg-cream/60"
+                  ? "bg-fuwa-orange text-white shadow-xs"
+                  : "text-fuwa-brown/70 hover:text-fuwa-brown hover:bg-fuwa-cream/50"
               }`}
             >
               Today
@@ -305,8 +305,8 @@ function Dashboard() {
               onClick={() => setFilterType("date")}
               className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "date"
-                  ? "bg-coffee text-cream shadow-xs"
-                  : "text-ink-soft hover:text-coffee hover:bg-cream/60"
+                  ? "bg-fuwa-orange text-white shadow-xs"
+                  : "text-fuwa-brown/70 hover:text-fuwa-brown hover:bg-fuwa-cream/50"
               }`}
             >
               Select date
@@ -317,8 +317,8 @@ function Dashboard() {
               onClick={() => setFilterType("month")}
               className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "month"
-                  ? "bg-coffee text-cream shadow-xs"
-                  : "text-ink-soft hover:text-coffee hover:bg-cream/60"
+                  ? "bg-fuwa-orange text-white shadow-xs"
+                  : "text-fuwa-brown/70 hover:text-fuwa-brown hover:bg-fuwa-cream/50"
               }`}
             >
               Select month
@@ -329,8 +329,8 @@ function Dashboard() {
               onClick={() => setFilterType("custom")}
               className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "custom"
-                  ? "bg-coffee text-cream shadow-xs"
-                  : "text-ink-soft hover:text-coffee hover:bg-cream/60"
+                  ? "bg-fuwa-orange text-white shadow-xs"
+                  : "text-fuwa-brown/70 hover:text-fuwa-brown hover:bg-fuwa-cream/50"
               }`}
             >
               Custom date range
@@ -341,8 +341,8 @@ function Dashboard() {
               onClick={() => setFilterType("all")}
               className={`shrink-0 rounded-xl px-3.5 py-1.5 transition-colors ${
                 filterType === "all"
-                  ? "bg-coffee text-cream shadow-xs"
-                  : "text-ink-soft hover:text-coffee hover:bg-cream/60"
+                  ? "bg-fuwa-orange text-white shadow-xs"
+                  : "text-fuwa-brown/70 hover:text-fuwa-brown hover:bg-fuwa-cream/50"
               }`}
             >
               All time
@@ -545,7 +545,7 @@ function Dashboard() {
                   tickFormatter={(val) => `₹${val}`}
                 />
                 <Tooltip content={<CustomChartTooltip />} />
-                <Bar dataKey="sales" fill="#e9a13b" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="sales" fill="#B64608" radius={[6, 6, 0, 0]} maxBarSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -666,14 +666,16 @@ function Stat({
 }) {
   return (
     <div
-      className={`card-hover flex flex-col justify-between rounded-2xl border border-ink/10 p-4 sm:p-5 shadow-card transition-all ${
-        dark ? "bg-coffee text-cream" : "bg-paper text-ink"
+      className={`card-hover flex flex-col justify-between rounded-2xl border p-4 sm:p-5 shadow-card transition-all ${
+        dark
+          ? "border-fuwa-brown/20 bg-fuwa-brown text-fuwa-surface"
+          : "border-fuwa-brown/10 bg-fuwa-surface text-fuwa-brown"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <span
           className={`font-mono text-[11px] font-bold uppercase tracking-wider sm:text-xs ${
-            dark ? "text-cream/70" : "text-ink-soft"
+            dark ? "text-fuwa-cream/70" : "text-fuwa-brown/65"
           }`}
         >
           {label}
@@ -681,7 +683,7 @@ function Stat({
         {Icon && (
           <span
             className={`grid size-7 place-items-center rounded-lg ${
-              dark ? "bg-cream/15 text-lemon" : "bg-cream text-ink-soft"
+              dark ? "bg-fuwa-orange text-white" : "bg-fuwa-cream text-fuwa-orange"
             }`}
           >
             <Icon className="size-3.5" />
@@ -691,13 +693,13 @@ function Stat({
       <div
         className={`mt-2 font-bold ${
           small ? "text-lg font-extrabold sm:text-xl truncate" : "font-mono text-2xl sm:text-3xl"
-        } ${dark ? "text-lemon" : "text-ink"}`}
+        } ${dark ? "text-fuwa-cream" : "text-fuwa-brown"}`}
       >
         {value}
       </div>
       <div
         className={`mt-1 truncate text-xs font-semibold ${
-          dark ? "text-cream/70" : "text-ink-soft"
+          dark ? "text-fuwa-cream/65" : "text-fuwa-brown/60"
         }`}
       >
         {sub}
@@ -750,7 +752,7 @@ function CustomChartTooltip({
   active?: boolean;
   payload?: Array<{ payload: ChartDataPoint }>;
 }) {
-  if (active && payload && payload.length) {
+  if (active && payload && payload.length && payload[0]) {
     const data: ChartDataPoint = payload[0].payload;
     return (
       <div className="rounded-xl border border-ink/15 bg-paper p-3 shadow-card text-xs">
