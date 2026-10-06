@@ -10,7 +10,7 @@ const ACCEPTED_TYPES = new Set([
   "image/webp",
 ]);
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const MAX_DIMENSION = 1000; // px
 const WEBP_QUALITY = 0.8;
 
@@ -37,7 +37,7 @@ export class ImageValidationError extends Error {
  *
  * Flow:
  * 1. Validate MIME type
- * 2. Validate file size (≤ 2 MB)
+ * 2. Validate file size (≤ 20 MB) to prevent browser memory crashes
  * 3. Decode into an Image element
  * 4. Calculate target dimensions (max 1000×1000, never upscale)
  * 5. Draw to an off-screen canvas
@@ -54,9 +54,9 @@ export async function compressProductImage(
     );
   }
 
-  // 2. Validate size
+  // 2. Validate size (Prevent browser crash on massive files, actual upload will be much smaller)
   if (file.size > MAX_FILE_SIZE) {
-    throw new ImageValidationError("Image must be smaller than 2 MB.");
+    throw new ImageValidationError("Image is too large. Please select an image under 20 MB.");
   }
 
   // 3. Decode image
