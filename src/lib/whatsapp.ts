@@ -50,62 +50,89 @@ export function saveOrderMeta(orderId: string, updates: Partial<OrderNotificatio
 }
 
 /**
- * Resolves the public digital invoice web link for an order
- */
-export function getInvoiceUrl(order: Order, origin?: string): string {
-  const base =
-    origin ||
-    (typeof window !== "undefined" && window.location.origin
-      ? window.location.origin
-      : "http://localhost:8080");
-  return `${base}/invoice/${encodeURIComponent(order.id)}`;
-}
-
-/**
- * Formats a clean, professional WhatsApp invoice message featuring a direct digital invoice link
+ * Formats a clean, professional WhatsApp invoice message
  */
 export function generateInvoiceWhatsAppMessage(
   order: Order,
   shop: ShopInfo = SHOP_INFO,
-  origin?: string,
 ): string {
-  const customerGreeting = order.customerName ? `Hi ${order.customerName.trim()}!` : "Hello!";
-  const dateStr = new Date(order.createdAt).toLocaleDateString("en-IN", {
-    day: "2-digit",
+  const customerGreeting = order.customerName
+    ? `Hi ${order.customerName.trim()}! 👋`
+    : "Hello! 👋";
+
+  const date = new Date(order.createdAt);
+  const dateStr = date.toLocaleDateString("en-IN", {
+    day: "numeric",
     month: "short",
     year: "numeric",
   });
-  const timeStr = new Date(order.createdAt).toLocaleTimeString("en-IN", {
-    hour: "2-digit",
+  const timeStr = date.toLocaleTimeString("en-IN", {
+    hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
 
   const invoiceNum =
     order.invoiceNumber ||
-    `FUWA-${new Date(order.createdAt).getFullYear()}-${order.number.replace(/^A-/, "").padStart(3, "0")}`;
+    `FUWA-${date.getFullYear()}-${order.number.replace(/^A-/, "").padStart(3, "0")}`;
 
-  const invoiceLink = getInvoiceUrl(order, origin);
+  const paymentDisplay =
+    order.payment === "upi" ? "UPI" : order.payment === "card" ? "Card" : "Cash";
 
-  return `🍰 *${shop.name}* — ${shop.tagline}
-------------------------------------
-${customerGreeting} Thank you for your order at ${shop.name}!
+  const paymentStatus =
+    order.status === "cancelled"
+      ? "Cancelled"
+      : order.payment === "cash"
+        ? "To be collected"
+        : "Paid";
 
-🧾 *Order Details:*
-• *Order #:* ${order.number}
-• *Invoice #:* ${invoiceNum}
-• *Date & Time:* ${dateStr}, ${timeStr}
-• *Payment Mode:* ${(order.payment || "cash").toUpperCase()}
-• *Grand Total:* *${fmt(order.total)}*
+  const itemsList = order.lines
+    .map((l, idx) => `${idx + 1}. ${l.name} × ${l.qty} — ${fmt(l.price * l.qty)}`)
+    .join("\n");
 
-🔗 *View & Download Your Digital Invoice:*
-👉 ${invoiceLink}
-------------------------------------
-✨ Our team is freshly preparing your fluffy order.
-📲 Click the invoice link above to view your full itemized bill & live kitchen status!
+  const discountLine = order.discount
+    ? `\n🏷️ *Discount Applied:* -${fmt(order.discount)}`
+    : "";
 
-📍 ${shop.addressLine1}, ${shop.addressLine2}
-📞 Ph: ${shop.phone}`;
+  const shopPhone = shop.phone || "7559803753";
+
+  return `🍰 *${shop.name}*
+*${shop.tagline}*
+━━━━━━━━━━━━━━━━━━
+
+${customerGreeting}
+
+Thank you for ordering from *${shop.name}*! 💛
+Your order has been received, and our team is preparing your delicious treats.
+
+🧾 *ORDER RECEIPT*
+
+*Order No.:* ${order.number}
+*Invoice No.:* ${invoiceNum}
+*Date:* ${dateStr}, ${timeStr}
+*Payment:* ${paymentDisplay}
+
+━━━━━━━━━━━━━━━━━━
+📋 *ORDER SUMMARY*
+
+${itemsList}${discountLine}
+
+━━━━━━━━━━━━━━━━━━
+💰 *GRAND TOTAL: ${fmt(order.total)}*
+
+💵 Payment Status: ${paymentStatus}
+
+━━━━━━━━━━━━━━━━━━
+
+👨‍🍳 *What's happening now?*
+
+Your order is being freshly prepared. We'll send you a WhatsApp notification as soon as it's ready for pickup.
+
+📍 *${shop.name} — ${shop.tagline}*
+📞 ${shopPhone}
+
+Thank you for choosing ${shop.name}! 💛
+*Freshly made, joyfully fluffy.* 🍰`;
 }
 
 /**
@@ -115,20 +142,31 @@ export function generateReadyWhatsAppMessage(
   order: Order,
   shop: ShopInfo = SHOP_INFO,
 ): string {
-  const customerGreeting = order.customerName ? `Hi ${order.customerName.trim()}!` : "Hello!";
-  const itemsSummary = order.lines.map((l) => `${l.qty}x ${l.name}`).join(", ");
+  const customerGreeting = order.customerName
+    ? `Hi ${order.customerName.trim()}! 👋`
+    : "Hello! 👋";
+  const itemsList = order.lines
+    .map((l) => `• ${l.name} × ${l.qty}`)
+    .join("\n");
+  const shopPhone = shop.phone || "7559803753";
 
-  return `🎉 *YOUR ORDER IS READY!* — ${shop.name}
-------------------------------------
-${customerGreeting} Great news! Your order *#${order.number}* is freshly prepared and *READY FOR PICKUP*! 🥞✨
-
-📦 *Your Items:*
-${itemsSummary}
-
-📍 Please head to the pickup counter with Order *#${order.number}*.
-
-Thank you for your patience and enjoy your fluffy treats! ☕
-— Team ${shop.name}`;
+  return `🎉 YOUR ORDER IS READY!
+🍰 ${shop.name} — ${shop.tagline}
+━━━━━━━━━━━━━━━━━━
+${customerGreeting}
+Your fluffy treats are freshly prepared and READY FOR PICKUP! 🥞✨
+🧾 Order No.: ${order.number}
+📦 YOUR ORDER
+${itemsList}
+📍 PICKUP REMINDER
+Please visit the ${shop.name} pickup counter and show your order number ${order.number} to collect your treats.
+📸 FOLLOW US ON INSTAGRAM
+See our fluffy creations and latest updates! 💛
+👉 https://www.instagram.com/fuwa_.fluffy
+Thank you for choosing ${shop.name}!
+Enjoy every fluffy bite! 🥞✨
+Team ${shop.name}
+📞 ${shopPhone}`;
 }
 
 /**

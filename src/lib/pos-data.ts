@@ -135,7 +135,7 @@ export const SHOP_INFO: ShopInfo = {
   addressLine1: "108 Omotesando Avenue, Shibuya",
   addressLine2: "Tokyo Dessert Counter",
   pin: "150-0001",
-  phone: "+91 98765 43210",
+  phone: "7559803753",
   gstin: "32AAAAA0000A1Z5",
   fssai: "11324000000000",
   isGstRegistered: false,
@@ -373,7 +373,8 @@ export const DEFAULT_MENU: MenuItem[] = [
   },
 ];
 
-export const fmt = (n: number) => `₹${n.toFixed(2)}`;
+export const fmt = (n: number) =>
+  `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function seedOrders(menu: MenuItem[]): Order[] {
   const now = Date.now();

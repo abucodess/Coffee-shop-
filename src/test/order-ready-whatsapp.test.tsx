@@ -41,14 +41,14 @@ const sampleOrderWithCustomer: Order = {
 };
 
 describe("WhatsApp Message Generation", () => {
-  it("generates structured invoice message with digital invoice link, total, and order reference", () => {
+  it("generates structured invoice message with items, total, and pickup notice", () => {
     const msg = generateInvoiceWhatsAppMessage(sampleOrderWithCustomer);
 
     expect(msg).toContain("FUWA");
     expect(msg).toContain("Aarav Sharma");
     expect(msg).toContain("A-201");
     expect(msg).toContain("FUWA-2026-201");
-    expect(msg).toContain("/invoice/order-test-wa-1");
+    expect(msg).toContain("Original Fluffy Soufflé");
     expect(msg).toContain("₹920.00");
     expect(msg).toContain("UPI");
   });
