@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Check, CheckCheck, Copy, ExternalLink, MessageCircle, X } from "lucide-react";
+import { Check, CheckCheck, Copy, ExternalLink, Link as LinkIcon, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   generateInvoiceWhatsAppMessage,
   generateReadyWhatsAppMessage,
+  getInvoiceUrl,
   getWhatsAppShareUrl,
 } from "@/lib/whatsapp";
 import type { Order } from "@/lib/pos-data";
@@ -16,8 +17,10 @@ export interface WhatsAppPreviewModalProps {
 
 export function WhatsAppPreviewModal({ order, type, onClose }: WhatsAppPreviewModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const phone = order.customerPhone || "";
   const name = order.customerName?.trim() || "Customer";
+  const invoiceUrl = getInvoiceUrl(order);
 
   const messageText =
     type === "ready"
@@ -37,12 +40,27 @@ export function WhatsAppPreviewModal({ order, type, onClose }: WhatsAppPreviewMo
     }
   };
 
+  const copyInvoiceLink = async () => {
+    try {
+      await navigator.clipboard.writeText(invoiceUrl);
+      setCopiedLink(true);
+      toast.success("Invoice link copied to clipboard");
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      toast.error("Failed to copy invoice link");
+    }
+  };
+
   const handleOpenWhatsApp = () => {
     if (!phone) {
       toast.error("No phone number attached to this order");
       return;
     }
     window.open(shareUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleOpenInvoice = () => {
+    window.open(invoiceUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -67,7 +85,7 @@ export function WhatsAppPreviewModal({ order, type, onClose }: WhatsAppPreviewMo
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-sm leading-tight text-white">{name}</span>
                 <span className="rounded-full bg-white/20 px-2 py-0.2 text-[10px] font-bold uppercase tracking-wider text-emerald-100">
-                  {type === "ready" ? "Ready Alert" : "Invoice"}
+                  {type === "ready" ? "Ready Alert" : "Invoice Link"}
                 </span>
               </div>
               <div className="font-mono text-xs text-emerald-100/80">
@@ -108,18 +126,18 @@ export function WhatsAppPreviewModal({ order, type, onClose }: WhatsAppPreviewMo
           </div>
 
           <div className="mt-3 text-center text-[11px] font-semibold text-stone-600">
-            ✨ Simulated message ready for customer WhatsApp delivery
+            ✨ Message with digital invoice link ready for customer delivery
           </div>
         </div>
 
         {/* Modal Action Controls */}
-        <div className="border-t border-fuwa-brown/10 bg-fuwa-surface p-4 sm:p-5 space-y-2.5">
+        <div className="border-t border-fuwa-brown/10 bg-fuwa-surface p-4 sm:p-5 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={handleOpenWhatsApp}
               disabled={!phone}
-              className="press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ExternalLink className="size-3.5 shrink-0" />
               <span>Open in WhatsApp</span>
@@ -127,13 +145,42 @@ export function WhatsAppPreviewModal({ order, type, onClose }: WhatsAppPreviewMo
 
             <button
               type="button"
+              onClick={handleOpenInvoice}
+              className="press flex items-center justify-center gap-1.5 rounded-xl bg-fuwa-orange px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-fuwa-orange-bright active:scale-[0.98]"
+            >
+              <ExternalLink className="size-3.5 shrink-0" />
+              <span>View Invoice Page</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={copyInvoiceLink}
+              className="press flex items-center justify-center gap-1.5 rounded-xl border border-fuwa-brown/15 bg-fuwa-cream px-3 py-2 text-xs font-bold text-fuwa-brown transition-all hover:bg-fuwa-cream/80 active:scale-[0.98]"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="size-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Link Copied!</span>
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="size-3.5 text-fuwa-brown/70" />
+                  <span>Copy Link</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={copyToClipboard}
-              className="press flex items-center justify-center gap-1.5 rounded-xl border border-fuwa-brown/15 bg-fuwa-cream px-4 py-2.5 text-xs font-bold text-fuwa-brown transition-all hover:bg-fuwa-cream/80 active:scale-[0.98]"
+              className="press flex items-center justify-center gap-1.5 rounded-xl border border-fuwa-brown/15 bg-fuwa-cream px-3 py-2 text-xs font-bold text-fuwa-brown transition-all hover:bg-fuwa-cream/80 active:scale-[0.98]"
             >
               {copied ? (
                 <>
                   <Check className="size-3.5 text-emerald-600" />
-                  <span className="text-emerald-700">Copied!</span>
+                  <span className="text-emerald-700">Text Copied!</span>
                 </>
               ) : (
                 <>

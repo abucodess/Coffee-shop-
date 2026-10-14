@@ -273,7 +273,12 @@ function Billing() {
             <div key={l.itemId} className="animate-pop flex items-center justify-between py-3.5">
               <div className="min-w-0 pr-3">
                 <div className="truncate text-sm font-extrabold text-fuwa-brown">{item.name}</div>
-                <div className="font-mono text-xs font-bold text-fuwa-brown/65">{fmt(item.price * l.qty)}</div>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <span className="inline-block rounded-md bg-fuwa-orange/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-fuwa-orange">
+                    {item.category}
+                  </span>
+                  <span className="font-mono text-xs font-bold text-fuwa-brown/65">{fmt(item.price * l.qty)}</span>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button

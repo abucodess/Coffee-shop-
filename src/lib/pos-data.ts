@@ -28,6 +28,7 @@ export interface OrderLine {
   name: string;
   price: number;
   qty: number;
+  category?: string;
 }
 
 export interface Order {
@@ -390,7 +391,7 @@ export function seedOrders(menu: MenuItem[]): Order[] {
   ): Order => {
     const lines = picks.map(([id, qty]) => {
       const item = menu.find((m) => m.id === id)!;
-      return { name: item.name, price: item.price, qty };
+      return { name: item.name, price: item.price, qty, category: item?.category };
     });
     const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
     const tax = 0;

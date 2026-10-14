@@ -172,7 +172,14 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
                   key={i}
                   className="grid grid-cols-[1fr_26px_54px_62px] gap-1 items-start text-[11px]"
                 >
-                  <span className="truncate pr-1 font-bold text-fuwa-brown">{l.name}</span>
+                  <div className="min-w-0 pr-1">
+                    <span className="block truncate font-bold text-fuwa-brown">{l.name}</span>
+                    {l.category && (
+                      <span className="block text-[9px] font-semibold text-fuwa-brown/60 uppercase tracking-wider">
+                        {l.category}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-center font-bold">{l.qty}</span>
                   <span className="text-right font-medium">{fmt(l.price)}</span>
                   <span className="text-right font-bold">{fmt(l.price * l.qty)}</span>

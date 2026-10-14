@@ -50,11 +50,24 @@ export function saveOrderMeta(orderId: string, updates: Partial<OrderNotificatio
 }
 
 /**
- * Formats a clean, professional WhatsApp invoice message
+ * Resolves the public digital invoice web link for an order
+ */
+export function getInvoiceUrl(order: Order, origin?: string): string {
+  const base =
+    origin ||
+    (typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : "http://localhost:8080");
+  return `${base}/invoice/${encodeURIComponent(order.id)}`;
+}
+
+/**
+ * Formats a clean, professional WhatsApp invoice message featuring a direct digital invoice link
  */
 export function generateInvoiceWhatsAppMessage(
   order: Order,
   shop: ShopInfo = SHOP_INFO,
+  origin?: string,
 ): string {
   const customerGreeting = order.customerName ? `Hi ${order.customerName.trim()}!` : "Hello!";
   const dateStr = new Date(order.createdAt).toLocaleDateString("en-IN", {
@@ -72,9 +85,7 @@ export function generateInvoiceWhatsAppMessage(
     order.invoiceNumber ||
     `FUWA-${new Date(order.createdAt).getFullYear()}-${order.number.replace(/^A-/, "").padStart(3, "0")}`;
 
-  const itemsList = order.lines
-    .map((l) => `  • ${l.qty}x ${l.name} — ${fmt(l.price * l.qty)}`)
-    .join("\n");
+  const invoiceLink = getInvoiceUrl(order, origin);
 
   return `🍰 *${shop.name}* — ${shop.tagline}
 ------------------------------------
@@ -85,14 +96,13 @@ ${customerGreeting} Thank you for your order at ${shop.name}!
 • *Invoice #:* ${invoiceNum}
 • *Date & Time:* ${dateStr}, ${timeStr}
 • *Payment Mode:* ${(order.payment || "cash").toUpperCase()}
+• *Grand Total:* *${fmt(order.total)}*
 
-📋 *Items Ordered:*
-${itemsList}
-
-💰 *Grand Total:* *${fmt(order.total)}*
-${order.discount ? `🏷️ *Discount Applied:* ${fmt(order.discount)}\n` : ""}------------------------------------
+🔗 *View & Download Your Digital Invoice:*
+👉 ${invoiceLink}
+------------------------------------
 ✨ Our team is freshly preparing your fluffy order.
-📲 We will notify you here as soon as your order is ready for pickup!
+📲 Click the invoice link above to view your full itemized bill & live kitchen status!
 
 📍 ${shop.addressLine1}, ${shop.addressLine2}
 📞 Ph: ${shop.phone}`;

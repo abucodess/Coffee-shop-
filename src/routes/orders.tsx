@@ -257,9 +257,14 @@ const OrderCard = memo(function OrderCard({
           <div className="mt-1 space-y-1">
             {o.lines.map((l, i) => (
               <div key={i} className="flex justify-between text-xs font-semibold text-fuwa-brown">
-                <span className="truncate pr-2">
+                <div className="truncate pr-2">
                   <span className="font-extrabold text-fuwa-orange">{l.qty}×</span> {l.name}
-                </span>
+                  {l.category && (
+                    <span className="ml-1.5 inline-block rounded-md bg-fuwa-orange/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-fuwa-orange">
+                      {l.category}
+                    </span>
+                  )}
+                </div>
                 <span className="shrink-0 font-mono text-fuwa-brown/65">{fmt(l.price * l.qty)}</span>
               </div>
             ))}

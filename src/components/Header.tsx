@@ -45,8 +45,8 @@ export function Header() {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Hide the POS header entirely on the dedicated login screen
-  if (pathname === "/login") {
+  // Hide the POS header entirely on the dedicated login screen and customer-facing invoice pages
+  if (pathname === "/login" || pathname.startsWith("/invoice")) {
     return null;
   }
 

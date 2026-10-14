@@ -652,6 +652,7 @@ export async function createOrder(
     name: l.item.name,
     price: l.item.price,
     qty: l.qty,
+    category: l.item.category,
   }));
 
   // Persist order metadata locally
@@ -876,11 +877,15 @@ export async function fetchOrdersByRange(
       number: o.order_number,
       invoiceNumber: invoiceNum,
       createdAt: new Date(o.created_at).getTime(),
-      lines: (o.order_items || []).map((item) => ({
-        name: item.product_name,
-        price: Number(item.unit_price),
-        qty: item.quantity,
-      })),
+      lines: (o.order_items || []).map((item) => {
+        const matched = DEFAULT_MENU.find((m) => m.name === item.product_name);
+        return {
+          name: item.product_name,
+          price: Number(item.unit_price),
+          qty: item.quantity,
+          category: matched?.category,
+        };
+      }),
       subtotal,
       tax: 0,
       cgst: 0,
@@ -899,3 +904,125 @@ export async function fetchOrdersByRange(
     };
   });
 }
+
+/**
+ * Fetch a single order by ID, order number, or invoice number (used by the digital invoice page)
+ */
+export async function fetchOrderByIdOrNumber(idOrNumber: string): Promise<Order | null> {
+  if (!idOrNumber) return null;
+  const trimmed = idOrNumber.trim();
+  const normalizedNumber = trimmed.startsWith("A-") ? trimmed : `A-${trimmed}`;
+
+  // 1. Try local storage first (instant 0ms response)
+  if (typeof localStorage !== "undefined") {
+    try {
+      const raw =
+        localStorage.getItem("fuwa-counter-pos-v1") ||
+        localStorage.getItem("mocha-counter-pos-v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.orders)) {
+          const match = parsed.orders.find(
+            (o: Order) =>
+              o.id === trimmed ||
+              o.number === trimmed ||
+              o.number === normalizedNumber ||
+              o.invoiceNumber === trimmed,
+          );
+          if (match) return match;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 2. If Supabase is configured, fetch from cloud
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(`
+          id,
+          order_number,
+          subtotal,
+          tax,
+          total,
+          payment_method,
+          status,
+          cashier,
+          customer_name,
+          customer_phone,
+          created_at,
+          cancelled_at,
+          order_items (
+            id,
+            product_name,
+            unit_price,
+            quantity,
+            total
+          )
+        `)
+        .or(`id.eq.${trimmed},order_number.eq.${trimmed},order_number.eq.${normalizedNumber}`)
+        .maybeSingle();
+
+      if (!error && data) {
+        const o = data as DbOrder & {
+          order_items?: DbOrderItem[];
+        };
+        const allMeta = getAllOrderMeta();
+        const meta = allMeta[o.id] || {};
+        const invoiceNum = o.order_number
+          ? `FUWA-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
+          : undefined;
+
+        return {
+          id: o.id,
+          number: o.order_number,
+          invoiceNumber: invoiceNum,
+          createdAt: new Date(o.created_at).getTime(),
+          lines: (o.order_items || []).map((item) => {
+            const matchedItem = DEFAULT_MENU.find((m) => m.name === item.product_name);
+            return {
+              name: item.product_name,
+              price: Number(item.unit_price),
+              qty: item.quantity,
+              category: matchedItem?.category,
+            };
+          }),
+          subtotal: Number(o.subtotal),
+          tax: 0,
+          cgst: 0,
+          sgst: 0,
+          total: Number(o.total),
+          payment: o.payment_method,
+          status: o.status,
+          cashier: o.cashier || SHOP_INFO.cashierName,
+          customerName: o.customer_name || undefined,
+          customerPhone: o.customer_phone || undefined,
+          sendWhatsAppInvoice: meta.sendWhatsAppInvoice ?? Boolean(o.customer_phone),
+          whatsappInvoiceSent: meta.whatsappInvoiceSent ?? Boolean(o.customer_phone),
+          isReady: meta.isReady ?? (o.status === "cancelled" ? false : false),
+          readyAt: meta.readyAt,
+          whatsappReadySent: meta.whatsappReadySent ?? false,
+        };
+      }
+    } catch (err) {
+      console.warn("Failed to fetch order from Supabase:", err);
+    }
+  }
+
+  // 3. Fallback to seedOrders
+  const seeds = seedOrders(DEFAULT_MENU);
+  const seedMatch = seeds.find(
+    (o) =>
+      o.id === trimmed ||
+      o.number === trimmed ||
+      o.number === normalizedNumber ||
+      o.invoiceNumber === trimmed,
+  );
+  if (seedMatch) return seedMatch;
+
+  return null;
+}
+
