@@ -25,6 +25,10 @@ import {
   markOrderReady,
   usePos,
 } from "@/lib/pos-store";
+import {
+  generateReadyWhatsAppMessage,
+  getWhatsAppShareUrl,
+} from "@/lib/whatsapp";
 
 // Lazy-load modals
 const ReceiptModal = lazy(() =>
@@ -430,10 +434,23 @@ function OrdersPage() {
 
   const handleMarkReady = useCallback(async (o: Order) => {
     try {
-      await markOrderReady(o.id, { notifyWhatsApp: true });
+      // Directly redirect to WhatsApp if customer phone number is attached
       if (o.customerPhone) {
+        try {
+          const readyMsg = generateReadyWhatsAppMessage(o);
+          const shareUrl = getWhatsAppShareUrl(o.customerPhone, readyMsg);
+          if (typeof window !== "undefined" && typeof window.open === "function") {
+            window.open(shareUrl, "_blank", "noopener,noreferrer");
+          }
+        } catch (e) {
+          console.warn("Failed to open WhatsApp URL:", e);
+        }
+      }
+
+      const res = await markOrderReady(o.id, { notifyWhatsApp: true });
+      if (res.notified || o.customerPhone) {
         toast.success(`Order #${o.number} is Ready!`, {
-          description: `WhatsApp notification sent to +91 ${o.customerPhone}`,
+          description: `Opening WhatsApp for ${res.phoneNormalized || `+91 ${o.customerPhone}`}`,
           action: {
             label: "View Message",
             onClick: () =>
@@ -442,6 +459,12 @@ function OrdersPage() {
                 type: "ready",
               }),
           },
+        });
+      } else if (res.wasAlreadyReady) {
+        toast.info(`Order #${o.number} is already marked as Ready.`);
+      } else if (res.warning) {
+        toast.warning(`Order #${o.number} marked as Ready`, {
+          description: res.warning,
         });
       } else {
         toast.success(`Order #${o.number} marked as Ready`);

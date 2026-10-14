@@ -26,6 +26,8 @@ import {
   simulateSendWhatsAppInvoice,
   simulateSendWhatsAppReady,
   saveOrderMeta,
+  getAllOrderMeta,
+  normalizeWhatsAppPhone,
 } from "./whatsapp";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
@@ -362,11 +364,30 @@ export async function completeOrder(
       sendWhatsAppInvoice,
     );
 
-    // If customer phone is provided and whatsapp invoice requested, simulate sending
+    // If customer phone is provided and whatsapp invoice requested, normalize and send safely
     if (sendWhatsAppInvoice && customerPhone && order) {
-      simulateSendWhatsAppInvoice(order).catch((err) => {
-        console.warn("Simulated WhatsApp invoice trigger failed:", err);
-      });
+      const phoneNorm = normalizeWhatsAppPhone(customerPhone);
+      if (phoneNorm.isValid) {
+        simulateSendWhatsAppInvoice(order).catch((err) => {
+          console.warn("Simulated WhatsApp invoice trigger failed:", err);
+        });
+      } else {
+        saveOrderMeta(order.id, {
+          whatsappInvoiceSent: false,
+          invoiceEvent: {
+            id: `${order.id}-invoice`,
+            orderId: order.id,
+            orderNumber: order.number,
+            messageType: "invoice",
+            recipientPhone: customerPhone,
+            normalizedPhone: "",
+            status: "failed",
+            attemptCount: 1,
+            lastAttemptAt: Date.now(),
+            errorMessage: phoneNorm.error || "Invalid customer phone number",
+          },
+        });
+      }
     }
 
     // Only clear cart and append order upon successful persistence
@@ -385,15 +406,35 @@ export async function completeOrder(
   }
 }
 
+export interface MarkOrderReadyResult {
+  success: boolean;
+  orderId: string;
+  orderNumber?: string;
+  wasAlreadyReady: boolean;
+  notified: boolean;
+  alreadyNotified: boolean;
+  phoneNormalized?: string;
+  warning?: string;
+  error?: string;
+}
+
 export async function markOrderReady(
   orderId: string,
-  options?: { notifyWhatsApp?: boolean },
-): Promise<void> {
+  options?: { notifyWhatsApp?: boolean; forceResend?: boolean },
+): Promise<MarkOrderReadyResult> {
   const target = state.orders.find((o) => o.id === orderId);
-  const shouldNotify = options?.notifyWhatsApp !== false && Boolean(target?.customerPhone);
-  const now = Date.now();
+  const allMeta = getAllOrderMeta();
+  const meta = allMeta[orderId] || {};
 
-  // Optimistic update if in state
+  const wasAlreadyReady = Boolean(target?.isReady || meta.isReady);
+  const wasAlreadySent = Boolean(
+    target?.whatsappReadySent || meta.whatsappReadySent || meta.readyEvent?.status === "sent",
+  );
+
+  const now = Date.now();
+  const readyTimestamp = target?.readyAt || meta.readyAt || now;
+
+  // 1. Optimistic update in state
   if (target) {
     setState({
       orders: state.orders.map((o) =>
@@ -401,31 +442,102 @@ export async function markOrderReady(
           ? {
               ...o,
               isReady: true,
-              readyAt: now,
-              whatsappReadySent: shouldNotify ? true : o.whatsappReadySent,
+              readyAt: readyTimestamp,
             }
           : o,
       ),
     });
   }
 
+  // 2. Persist ready status in metadata
   saveOrderMeta(orderId, {
     isReady: true,
-    readyAt: now,
-    whatsappReadySent: shouldNotify ? true : target?.whatsappReadySent,
+    readyAt: readyTimestamp,
   });
 
-  if (target && shouldNotify) {
-    simulateSendWhatsAppReady(target).catch((err) => {
-      console.warn("Simulated WhatsApp ready notification failed:", err);
-    });
-  }
-
+  // 3. Persist to DB asynchronously
   try {
     await updateOrderReadyInDb(orderId, true);
   } catch (err) {
     console.warn("Failed to sync order ready status to database:", err);
   }
+
+  // 4. Status Transition Detection:
+  // If order was ALREADY ready, do NOT trigger notification again
+  if (wasAlreadyReady) {
+    return {
+      success: true,
+      orderId,
+      orderNumber: target?.number,
+      wasAlreadyReady: true,
+      notified: false,
+      alreadyNotified: wasAlreadySent,
+    };
+  }
+
+  // Transition from non-ready to ready:
+  let notified = false;
+  let alreadyNotified = wasAlreadySent;
+  let warning: string | undefined;
+
+  const phone = target?.customerPhone;
+  const shouldAttemptNotify = options?.notifyWhatsApp !== false && !wasAlreadySent;
+
+  if (shouldAttemptNotify) {
+    if (!phone) {
+      warning = "Customer has no phone number. Order marked ready without WhatsApp notification.";
+    } else {
+      const phoneNorm = normalizeWhatsAppPhone(phone);
+      if (!phoneNorm.isValid) {
+        warning = `Customer phone number is invalid (${phoneNorm.error || "invalid format"}). WhatsApp notification was not sent.`;
+        saveOrderMeta(orderId, {
+          readyEvent: {
+            id: `${orderId}-ready`,
+            orderId,
+            orderNumber: target?.number || "",
+            messageType: "ready",
+            recipientPhone: phone,
+            normalizedPhone: "",
+            status: "failed",
+            attemptCount: 1,
+            lastAttemptAt: Date.now(),
+            errorMessage: phoneNorm.error || "Invalid phone number",
+          },
+        });
+      } else if (target) {
+        try {
+          const res = await simulateSendWhatsAppReady(target, {
+            forceResend: options?.forceResend,
+          });
+          if (res.success && !res.alreadySent) {
+            notified = true;
+            setState({
+              orders: state.orders.map((o) =>
+                o.id === orderId ? { ...o, whatsappReadySent: true } : o,
+              ),
+            });
+          } else if (res.alreadySent) {
+            alreadyNotified = true;
+          } else if (res.error) {
+            warning = `WhatsApp notification could not be delivered: ${res.error}`;
+          }
+        } catch (err: any) {
+          warning = `WhatsApp notification failed: ${err?.message || "Unknown error"}`;
+        }
+      }
+    }
+  }
+
+  return {
+    success: true,
+    orderId,
+    orderNumber: target?.number,
+    wasAlreadyReady: false,
+    notified,
+    alreadyNotified,
+    phoneNormalized: phone ? normalizeWhatsAppPhone(phone).displayFormatted : undefined,
+    warning,
+  };
 }
 
 export async function markOrderPreparing(orderId: string): Promise<void> {

@@ -121,7 +121,7 @@ describe("Category Management", () => {
 
   describe("Store Category Actions", () => {
     it("prevents deleting category with items in pos-store", async () => {
-      await expect(deleteCategory("Espresso")).rejects.toThrow(/still belong to it/i);
+      await expect(deleteCategory("Japanese Soufflé Pancakes")).rejects.toThrow(/still belong to it/i);
     });
 
     it("rejects empty category names in addCategory", async () => {

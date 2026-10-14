@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
+import { SHOP_INFO } from "./pos-data";
+
 export interface StoreSettings {
   name: string;
   address: string;
@@ -8,8 +10,8 @@ export interface StoreSettings {
 }
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
-  name: "FUWA Japanese Fluffy Desserts",
-  address: "108 Omotesando Avenue, Shibuya\nTokyo - 150-0001",
+  name: SHOP_INFO.fullName,
+  address: `${SHOP_INFO.addressLine1}\n${SHOP_INFO.addressLine2}\nNear: ${SHOP_INFO.landmark}\nPIN: ${SHOP_INFO.pin} | Ph: ${SHOP_INFO.phone}\nFSSAI: ${SHOP_INFO.fssai}`,
   logoUrl: "/logo-lg.png",
 };
 

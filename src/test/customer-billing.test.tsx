@@ -90,6 +90,17 @@ describe("Receipt Display with Customer Details", () => {
     expect(screen.queryByText("Customer:")).not.toBeInTheDocument();
     expect(screen.queryByText("Phone:")).not.toBeInTheDocument();
   });
+
+  it("displays business header with PIN and FSSAI, omitting owner name", () => {
+    render(<ReceiptModal order={dummyOrderWithCustomer} onClose={vi.fn()} />);
+
+    expect(screen.getByText("FUWA")).toBeInTheDocument();
+    expect(screen.getByText(/PIN:\s*679322\s*\|\s*Ph:\s*\+91\s*90480\s*37530/i)).toBeInTheDocument();
+    expect(screen.getByText("FSSAI: 21326223001036")).toBeInTheDocument();
+    // Owner name (FBO / ABIN K) must NOT appear on the bill
+    expect(screen.queryByText(/FBO/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ABIN K/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("Order Creation with Customer Details", () => {
@@ -224,4 +235,68 @@ describe("Customer Cache & Autofill Service", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("Payment Method Tracking (UPI, Cash, Card)", () => {
+  it("accurately tracks UPI payment method on created orders and metadata", async () => {
+    const { createOrder } = await import("@/lib/pos-api");
+    const { getAllOrderMeta } = await import("@/lib/whatsapp");
+    const dummyItem: MenuItem = {
+      id: "fluffy-test-item",
+      name: "Fluffy Soufflé Test",
+      note: "",
+      price: 150,
+      category: "Japanese Soufflé Pancakes",
+      color: "lemon",
+      available: true,
+    };
+
+    const upiOrder = await createOrder(
+      [{ item: dummyItem, qty: 1 }],
+      "upi",
+      0,
+      "Staff 01",
+      "UPI Customer",
+      "9876543210",
+      false,
+    );
+
+    expect(upiOrder.payment).toBe("upi");
+
+    const meta = getAllOrderMeta();
+    expect(meta[upiOrder.id]?.paymentMethod).toBe("upi");
+  });
+
+  it("accurately tracks Cash and Card payment methods", async () => {
+    const { createOrder } = await import("@/lib/pos-api");
+    const { getAllOrderMeta } = await import("@/lib/whatsapp");
+    const dummyItem: MenuItem = {
+      id: "fluffy-test-item-2",
+      name: "Fluffy Soufflé Test 2",
+      note: "",
+      price: 200,
+      category: "Japanese Soufflé Pancakes",
+      color: "coral",
+      available: true,
+    };
+
+    const cashOrder = await createOrder(
+      [{ item: dummyItem, qty: 1 }],
+      "cash",
+      0,
+      "Staff 01",
+    );
+    expect(cashOrder.payment).toBe("cash");
+    expect(getAllOrderMeta()[cashOrder.id]?.paymentMethod).toBe("cash");
+
+    const cardOrder = await createOrder(
+      [{ item: dummyItem, qty: 1 }],
+      "card",
+      0,
+      "Staff 01",
+    );
+    expect(cardOrder.payment).toBe("card");
+    expect(getAllOrderMeta()[cardOrder.id]?.paymentMethod).toBe("card");
+  });
+});
+
 

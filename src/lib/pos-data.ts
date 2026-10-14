@@ -119,27 +119,40 @@ export const TAX_RATE = 0;
 export interface ShopInfo {
   name: string;
   tagline: string;
+  fullName: string;
+  fboName: string;
+  businessType: string;
   addressLine1: string;
   addressLine2: string;
+  fullAddress: string;
+  landmark: string;
   pin: string;
   phone: string;
   gstin?: string;
-  fssai?: string;
+  fssai: string;
   isGstRegistered: boolean;
   cashierName: string;
+  instagramUrl: string;
 }
 
 export const SHOP_INFO: ShopInfo = {
   name: "FUWA",
   tagline: "Japanese Fluffy Desserts",
-  addressLine1: "108 Omotesando Avenue, Shibuya",
-  addressLine2: "Tokyo Dessert Counter",
-  pin: "150-0001",
-  phone: "7559803753",
-  gstin: "32AAAAA0000A1Z5",
-  fssai: "11324000000000",
+  fullName: "FUWA - Japanese Fluffy Desserts",
+  fboName: "ABIN K",
+  businessType: "Petty Retailer of Snacks/Tea Shops",
+  addressLine1: "Karama City, Manathumangalam, Perinthalmanna",
+  addressLine2: "Perinthalmanna Circle, Malappuram, Kerala",
+  fullAddress:
+    "Karama City, Manathumangalam, Perinthalmanna, Kerala 679322, Perinthalmanna Circle, Malappuram, Kerala.",
+  landmark: "Bypass, Jn Road",
+  pin: "679322",
+  phone: "+91 90480 37530",
+  gstin: "",
+  fssai: "21326223001036",
   isGstRegistered: false,
   cashierName: "Staff 01",
+  instagramUrl: "https://www.instagram.com/fuwa_.fluffy",
 };
 
 export const DEFAULT_CATEGORY_ITEMS: CategoryItem[] = [

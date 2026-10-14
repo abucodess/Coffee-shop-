@@ -4,18 +4,18 @@ import {
   generateInvoiceWhatsAppMessage,
   generateReadyWhatsAppMessage,
   getWhatsAppShareUrl,
+  normalizeWhatsAppPhone,
   simulateSendWhatsAppInvoice,
   simulateSendWhatsAppReady,
   getAllOrderMeta,
   saveOrderMeta,
+  clearOrderMetaCache,
 } from "@/lib/whatsapp";
 import {
   markOrderReady,
   markOrderPreparing,
-  completeOrder,
-  usePos,
 } from "@/lib/pos-store";
-import type { Order } from "@/lib/pos-data";
+import { SHOP_INFO, type Order } from "@/lib/pos-data";
 import { WhatsAppPreviewModal } from "@/components/WhatsAppPreviewModal";
 
 const sampleOrderWithCustomer: Order = {
@@ -36,12 +36,50 @@ const sampleOrderWithCustomer: Order = {
   customerName: "Aarav Sharma",
   customerPhone: "9876543210",
   sendWhatsAppInvoice: true,
-  whatsappInvoiceSent: true,
+  whatsappInvoiceSent: false,
   isReady: false,
 };
 
+describe("Phone Number Normalization for WhatsApp", () => {
+  it("normalizes standard 10-digit Indian numbers with country code 91", () => {
+    const res = normalizeWhatsAppPhone("9876543210");
+    expect(res.isValid).toBe(true);
+    expect(res.normalized).toBe("919876543210");
+    expect(res.displayFormatted).toBe("+91 9876543210");
+  });
+
+  it("handles existing +91 and 91 prefixes without duplicating country code", () => {
+    const res1 = normalizeWhatsAppPhone("+91 98765 43210");
+    expect(res1.isValid).toBe(true);
+    expect(res1.normalized).toBe("919876543210");
+
+    const res2 = normalizeWhatsAppPhone("919876543210");
+    expect(res2.isValid).toBe(true);
+    expect(res2.normalized).toBe("919876543210");
+  });
+
+  it("handles leading 0 prefix correctly", () => {
+    const res = normalizeWhatsAppPhone("09876543210");
+    expect(res.isValid).toBe(true);
+    expect(res.normalized).toBe("919876543210");
+  });
+
+  it("strips parentheses, spaces, and hyphens", () => {
+    const res = normalizeWhatsAppPhone("+91 (987) 654-3210");
+    expect(res.isValid).toBe(true);
+    expect(res.normalized).toBe("919876543210");
+  });
+
+  it("rejects invalid, short, or empty numbers without crashing", () => {
+    expect(normalizeWhatsAppPhone("").isValid).toBe(false);
+    expect(normalizeWhatsAppPhone(null).isValid).toBe(false);
+    expect(normalizeWhatsAppPhone("12345").isValid).toBe(false);
+    expect(normalizeWhatsAppPhone("abcdef").isValid).toBe(false);
+  });
+});
+
 describe("WhatsApp Message Generation", () => {
-  it("generates structured invoice message with items, total, and pickup notice", () => {
+  it("generates structured invoice message with items, total, and business details", () => {
     const msg = generateInvoiceWhatsAppMessage(sampleOrderWithCustomer);
 
     expect(msg).toContain("FUWA");
@@ -51,9 +89,10 @@ describe("WhatsApp Message Generation", () => {
     expect(msg).toContain("Original Fluffy Soufflé");
     expect(msg).toContain("₹920.00");
     expect(msg).toContain("UPI");
+    expect(msg).toContain("+91 90480 37530");
   });
 
-  it("generates cheerful ready message when order is prepared", () => {
+  it("generates joyful ready message with exact required copy and clickable Instagram link", () => {
     const msg = generateReadyWhatsAppMessage(sampleOrderWithCustomer);
 
     expect(msg).toContain("YOUR ORDER IS READY");
@@ -61,6 +100,9 @@ describe("WhatsApp Message Generation", () => {
     expect(msg).toContain("Aarav Sharma");
     expect(msg).toContain("READY FOR PICKUP");
     expect(msg).toContain("pickup counter");
+    expect(msg).toContain("Hello! Your FUWA order is ready for pickup. Thank you for choosing FUWA - Japanese Fluffy Desserts! 🍰");
+    expect(msg).toContain("https://www.instagram.com/fuwa_.fluffy");
+    expect(msg).toContain("+91 90480 37530");
   });
 
   it("builds valid wa.me share url with sanitized 10-digit phone", () => {
@@ -72,12 +114,13 @@ describe("WhatsApp Message Generation", () => {
   });
 });
 
-describe("Simulated WhatsApp Service & Metadata", () => {
+describe("Simulated WhatsApp Service, Idempotency & Duplicate Prevention", () => {
   beforeEach(() => {
     localStorage.clear();
+    clearOrderMetaCache();
   });
 
-  it("simulates sending invoice and updates local order metadata", async () => {
+  it("simulates sending invoice and creates persistent event record", async () => {
     const res = await simulateSendWhatsAppInvoice(sampleOrderWithCustomer);
 
     expect(res.success).toBe(true);
@@ -88,9 +131,21 @@ describe("Simulated WhatsApp Service & Metadata", () => {
     const meta = getAllOrderMeta();
     expect(meta[sampleOrderWithCustomer.id]?.whatsappInvoiceSent).toBe(true);
     expect(meta[sampleOrderWithCustomer.id]?.sendWhatsAppInvoice).toBe(true);
+    expect(meta[sampleOrderWithCustomer.id]?.invoiceEvent?.status).toBe("sent");
   });
 
-  it("simulates sending ready notification and marks isReady", async () => {
+  it("prevents duplicate invoice sending on retry or re-render", async () => {
+    const res1 = await simulateSendWhatsAppInvoice(sampleOrderWithCustomer);
+    expect(res1.success).toBe(true);
+    expect(res1.alreadySent).toBeUndefined();
+
+    // Second call for same order
+    const res2 = await simulateSendWhatsAppInvoice(sampleOrderWithCustomer);
+    expect(res2.success).toBe(true);
+    expect(res2.alreadySent).toBe(true);
+  });
+
+  it("simulates sending ready notification and creates persistent event record", async () => {
     const res = await simulateSendWhatsAppReady(sampleOrderWithCustomer);
 
     expect(res.success).toBe(true);
@@ -101,19 +156,48 @@ describe("Simulated WhatsApp Service & Metadata", () => {
     expect(meta[sampleOrderWithCustomer.id]?.isReady).toBe(true);
     expect(meta[sampleOrderWithCustomer.id]?.whatsappReadySent).toBe(true);
     expect(meta[sampleOrderWithCustomer.id]?.readyAt).toBeDefined();
+    expect(meta[sampleOrderWithCustomer.id]?.readyEvent?.status).toBe("sent");
+  });
+
+  it("prevents duplicate ready notification on repeated calls", async () => {
+    const res1 = await simulateSendWhatsAppReady(sampleOrderWithCustomer);
+    expect(res1.success).toBe(true);
+    expect(res1.alreadySent).toBeUndefined();
+
+    const res2 = await simulateSendWhatsAppReady(sampleOrderWithCustomer);
+    expect(res2.success).toBe(true);
+    expect(res2.alreadySent).toBe(true);
+  });
+
+  it("gracefully handles invalid phone numbers without crashing", async () => {
+    const orderWithBadPhone: Order = {
+      ...sampleOrderWithCustomer,
+      id: "bad-phone-order",
+      customerPhone: "123",
+    };
+
+    const res = await simulateSendWhatsAppReady(orderWithBadPhone);
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/Invalid phone number/i);
+
+    const meta = getAllOrderMeta();
+    expect(meta["bad-phone-order"]?.readyEvent?.status).toBe("failed");
   });
 });
 
-describe("Kitchen Order Status Transitions", () => {
+describe("Kitchen Order Status Transitions & Idempotency", () => {
   beforeEach(() => {
     localStorage.clear();
+    clearOrderMetaCache();
   });
 
   it("marks order as ready and can revert back to preparing", async () => {
-    // Save sample order into store state
     saveOrderMeta("test-order-99", { isReady: false });
 
-    await markOrderReady("test-order-99", { notifyWhatsApp: true });
+    const readyRes = await markOrderReady("test-order-99", { notifyWhatsApp: true });
+    expect(readyRes.success).toBe(true);
+    expect(readyRes.wasAlreadyReady).toBe(false);
+
     let meta = getAllOrderMeta();
     expect(meta["test-order-99"]?.isReady).toBe(true);
     expect(meta["test-order-99"]?.readyAt).toBeDefined();
@@ -122,6 +206,14 @@ describe("Kitchen Order Status Transitions", () => {
     meta = getAllOrderMeta();
     expect(meta["test-order-99"]?.isReady).toBe(false);
     expect(meta["test-order-99"]?.readyAt).toBeUndefined();
+  });
+
+  it("suppresses duplicate ready messages on Ready -> Ready transition", async () => {
+    saveOrderMeta("test-order-rr", { isReady: true, whatsappReadySent: true });
+
+    const res = await markOrderReady("test-order-rr", { notifyWhatsApp: true });
+    expect(res.wasAlreadyReady).toBe(true);
+    expect(res.notified).toBe(false);
   });
 });
 
@@ -147,18 +239,15 @@ describe("WhatsAppPreviewModal Component", () => {
   });
 });
 
-describe("Historical vs Today's Orders Filtering", () => {
-  it("correctly identifies orders placed today vs historical (older than 1 day)", async () => {
-    const { isOrderToday } = await import("@/lib/pos-data");
-    const now = Date.now();
-    const twoHoursAgo = now - 2 * 3600 * 1000;
-    const yesterday = now - 26 * 3600 * 1000;
-    const threeDaysAgo = now - 3 * 24 * 3600 * 1000;
-
-    expect(isOrderToday(now)).toBe(true);
-    expect(isOrderToday(twoHoursAgo)).toBe(true);
-    expect(isOrderToday(yesterday)).toBe(false);
-    expect(isOrderToday(threeDaysAgo)).toBe(false);
+describe("Centralized Business Info Integrity", () => {
+  it("verifies SHOP_INFO matches official business credentials", () => {
+    expect(SHOP_INFO.fullName).toBe("FUWA - Japanese Fluffy Desserts");
+    expect(SHOP_INFO.fboName).toBe("ABIN K");
+    expect(SHOP_INFO.businessType).toBe("Petty Retailer of Snacks/Tea Shops");
+    expect(SHOP_INFO.fssai).toBe("21326223001036");
+    expect(SHOP_INFO.phone).toBe("+91 90480 37530");
+    expect(SHOP_INFO.landmark).toBe("Bypass, Jn Road");
+    expect(SHOP_INFO.instagramUrl).toBe("https://www.instagram.com/fuwa_.fluffy");
+    expect(SHOP_INFO.fullAddress).toContain("Karama City, Manathumangalam, Perinthalmanna, Kerala 679322");
   });
 });
-

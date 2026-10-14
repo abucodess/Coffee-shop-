@@ -32,6 +32,7 @@ import {
   usePos,
 } from "@/lib/pos-store";
 import { getCachedCustomerName, lookupCustomerByPhone } from "@/lib/customer-service";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp";
 
 import { ProtectedRoute, useAuth } from "@/auth";
 
@@ -211,9 +212,16 @@ function Billing() {
       );
       if (order) {
         if (cleanedPhone && sendWhatsAppInvoice) {
-          toast.success(`Order ${order.number} completed — ${fmt(order.total)}`, {
-            description: `WhatsApp digital invoice sent to +91 ${cleanedPhone}`,
-          });
+          const norm = normalizeWhatsAppPhone(cleanedPhone);
+          if (norm.isValid) {
+            toast.success(`Order ${order.number} completed — ${fmt(order.total)}`, {
+              description: `WhatsApp digital invoice sent to ${norm.displayFormatted}`,
+            });
+          } else {
+            toast.warning(`Order ${order.number} completed — ${fmt(order.total)}`, {
+              description: norm.error || "Customer phone number is invalid for WhatsApp",
+            });
+          }
         } else {
           toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
         }

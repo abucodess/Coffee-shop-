@@ -95,20 +95,23 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
             <div className="text-lg font-black tracking-wider text-fuwa-orange">
               {SHOP_INFO.name}
             </div>
-            <div className="mt-0.5 text-[10px] font-bold text-fuwa-brown/70 italic">
-              {SHOP_INFO.tagline}
+            <div className="mt-1 text-[10px] text-fuwa-brown/85 leading-snug">
+              {SHOP_INFO.addressLine1}
+              <br />
+              {SHOP_INFO.addressLine2}
+              {SHOP_INFO.landmark && (
+                <div className="text-[9.5px] text-fuwa-brown/70 font-medium">
+                  Near: {SHOP_INFO.landmark}
+                </div>
+              )}
             </div>
-            <div className="mt-1 text-[11px] text-fuwa-brown/80">
-              {SHOP_INFO.addressLine1}, {SHOP_INFO.addressLine2}
-            </div>
-            <div className="text-[10px] text-fuwa-brown/60">
+            <div className="text-[10px] text-fuwa-brown/75 mt-0.5 font-medium">
               PIN: {SHOP_INFO.pin} | Ph: {SHOP_INFO.phone}
             </div>
-            {SHOP_INFO.isGstRegistered && SHOP_INFO.gstin && (
-              <div className="mt-0.5 text-[11px] font-bold">GSTIN: {SHOP_INFO.gstin}</div>
-            )}
             {SHOP_INFO.fssai && (
-              <div className="text-[10px] text-fuwa-brown/60">FSSAI: {SHOP_INFO.fssai}</div>
+              <div className="mt-0.5 text-[10px] font-bold text-fuwa-brown">
+                FSSAI: {SHOP_INFO.fssai}
+              </div>
             )}
           </div>
 
@@ -201,6 +204,27 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
               <div className="flex justify-between text-red-600">
                 <span>Discount</span>
                 <span>-{fmt(discount)}</span>
+              </div>
+            )}
+
+            {Boolean(order.cgst && order.cgst > 0) && (
+              <div className="flex justify-between text-fuwa-brown/85">
+                <span>CGST</span>
+                <span>{fmt(order.cgst!)}</span>
+              </div>
+            )}
+
+            {Boolean(order.sgst && order.sgst > 0) && (
+              <div className="flex justify-between text-fuwa-brown/85">
+                <span>SGST</span>
+                <span>{fmt(order.sgst!)}</span>
+              </div>
+            )}
+
+            {Boolean(!order.cgst && !order.sgst && order.tax && order.tax > 0) && (
+              <div className="flex justify-between text-fuwa-brown/85">
+                <span>Tax</span>
+                <span>{fmt(order.tax)}</span>
               </div>
             )}
 

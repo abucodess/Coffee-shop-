@@ -471,7 +471,7 @@ export async function fetchOrders(): Promise<Order[]> {
       cgst: 0,
       sgst: 0,
       total: Number(o.total),
-      payment: o.payment_method,
+      payment: (meta.paymentMethod || (o.payment_method?.toLowerCase() as PaymentMethod) || "cash"),
       status: o.status,
       cashier: o.cashier || SHOP_INFO.cashierName,
       customerName: o.customer_name || undefined,
@@ -655,8 +655,9 @@ export async function createOrder(
     category: l.item.category,
   }));
 
-  // Persist order metadata locally
+  // Persist order metadata locally including exact payment method
   saveOrderMeta(orderId, {
+    paymentMethod: payment,
     isReady: false,
     sendWhatsAppInvoice: shouldSendWhatsApp,
     whatsappInvoiceSent: shouldSendWhatsApp,
@@ -891,7 +892,7 @@ export async function fetchOrdersByRange(
       cgst: 0,
       sgst: 0,
       total: Number(o.total),
-      payment: o.payment_method,
+      payment: (meta.paymentMethod || (o.payment_method?.toLowerCase() as PaymentMethod) || "cash"),
       status: o.status,
       cashier: o.cashier || SHOP_INFO.cashierName,
       customerName: o.customer_name || undefined,
@@ -995,7 +996,7 @@ export async function fetchOrderByIdOrNumber(idOrNumber: string): Promise<Order 
           cgst: 0,
           sgst: 0,
           total: Number(o.total),
-          payment: o.payment_method,
+          payment: (meta.paymentMethod || (o.payment_method?.toLowerCase() as PaymentMethod) || "cash"),
           status: o.status,
           cashier: o.cashier || SHOP_INFO.cashierName,
           customerName: o.customer_name || undefined,

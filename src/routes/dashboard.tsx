@@ -244,7 +244,7 @@ function Dashboard() {
       generateSalesPdfReport({
         timeframe: periodLabel,
         generatedAt: new Date(),
-        orders: paidOrders,
+        orders: filteredOrders,
         menu,
       });
     } finally {
@@ -276,10 +276,10 @@ function Dashboard() {
             <button
               onClick={handleDownloadPdf}
               disabled={isExporting || isLoading}
-              className="press flex items-center gap-2 rounded-xl bg-amber px-4 py-2.5 text-sm font-extrabold text-coffee shadow-card disabled:opacity-50"
+              className="press flex items-center gap-2 rounded-xl bg-amber px-4 py-2.5 text-sm font-extrabold text-white shadow-card transition-all hover:brightness-105 active:scale-95 disabled:opacity-50"
             >
-              <Download className="size-4 stroke-[2.5]" />
-              {isExporting ? "Generating PDF…" : "Download PDF Report"}
+              <Download className="size-4 stroke-[2.5] text-white" />
+              <span className="text-white">{isExporting ? "Generating PDF…" : "Download PDF Report"}</span>
             </button>
           </div>
         </div>
