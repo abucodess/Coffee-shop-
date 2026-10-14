@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { Printer } from "lucide-react";
+import { useState, lazy, Suspense } from "react";
+import { MessageCircle, Printer } from "lucide-react";
 import { fmt, SHOP_INFO, type Order } from "@/lib/pos-data";
 import { numberToIndianWords } from "@/lib/amount-to-words";
 
+const WhatsAppPreviewModal = lazy(() =>
+  import("@/components/WhatsAppPreviewModal").then((m) => ({ default: m.WhatsAppPreviewModal })),
+);
+
 export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => void }) {
   const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">("80mm");
+  const [showWhatsAppPreview, setShowWhatsAppPreview] = useState(false);
   const date = new Date(order.createdAt);
 
   const formattedDate = date.toLocaleDateString("en-IN", {
@@ -222,24 +227,58 @@ export function ReceiptModal({ order, onClose }: { order: Order; onClose: () => 
         </div>
 
         {/* Modal Action Buttons */}
-        <div className="mt-5 grid grid-cols-2 gap-2 print:hidden">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="press flex items-center justify-center gap-2 rounded-xl bg-fuwa-orange py-3 text-sm font-extrabold text-white shadow-card hover:bg-fuwa-orange-bright transition-colors"
-          >
-            <Printer className="size-4" />
-            Print Bill
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="press rounded-xl border border-fuwa-brown/15 bg-fuwa-cream py-3 text-sm font-bold text-fuwa-brown hover:bg-fuwa-cream/80 transition-colors"
-          >
-            Close
-          </button>
+        <div className="mt-5 space-y-2 print:hidden">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="press flex items-center justify-center gap-2 rounded-xl bg-fuwa-orange py-3 text-xs sm:text-sm font-extrabold text-white shadow-card hover:bg-fuwa-orange-bright transition-colors"
+            >
+              <Printer className="size-4" />
+              <span>Print Bill</span>
+            </button>
+
+            {order.customerPhone ? (
+              <button
+                type="button"
+                onClick={() => setShowWhatsAppPreview(true)}
+                className="press flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-3 text-xs sm:text-sm font-extrabold text-white shadow-card hover:bg-emerald-700 transition-colors"
+              >
+                <MessageCircle className="size-4 fill-current" />
+                <span>WhatsApp Bill</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="press rounded-xl border border-fuwa-brown/15 bg-fuwa-cream py-3 text-xs sm:text-sm font-bold text-fuwa-brown hover:bg-fuwa-cream/80 transition-colors"
+              >
+                Close
+              </button>
+            )}
+          </div>
+
+          {order.customerPhone && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl border border-fuwa-brown/15 bg-fuwa-cream py-2.5 text-xs font-bold text-fuwa-brown hover:bg-fuwa-cream/80 transition-colors"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
+
+      {showWhatsAppPreview && (
+        <Suspense fallback={null}>
+          <WhatsAppPreviewModal
+            order={order}
+            type="invoice"
+            onClose={() => setShowWhatsAppPreview(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

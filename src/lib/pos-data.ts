@@ -47,6 +47,11 @@ export interface Order {
   cashier?: string | undefined;
   customerName?: string | undefined;
   customerPhone?: string | undefined;
+  sendWhatsAppInvoice?: boolean | undefined;
+  whatsappInvoiceSent?: boolean | undefined;
+  isReady?: boolean | undefined;
+  readyAt?: number | undefined;
+  whatsappReadySent?: boolean | undefined;
 }
 
 /**
@@ -82,6 +87,21 @@ export function validatePhoneNumber(phone?: string | null): {
     isValid: false,
     error: "Phone number must be exactly 10 digits",
   };
+}
+
+/**
+ * Checks whether an order timestamp was placed today in local time.
+ * Orders placed before today (yesterday or earlier) are historical and do not need kitchen action controls.
+ */
+export function isOrderToday(timestamp: number): boolean {
+  if (!timestamp) return false;
+  const d = new Date(timestamp);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
 }
 
 // Configurable GST Rates (tax removed - 0%)
@@ -364,6 +384,9 @@ export function seedOrders(menu: MenuItem[]): Order[] {
     status: OrderStatus = "paid",
     customerName?: string,
     customerPhone?: string,
+    isReady: boolean = true,
+    whatsappInvoiceSent: boolean = false,
+    whatsappReadySent: boolean = false,
   ): Order => {
     const lines = picks.map(([id, qty]) => {
       const item = menu.find((m) => m.id === id)!;
@@ -383,6 +406,11 @@ export function seedOrders(menu: MenuItem[]): Order[] {
       status,
       customerName,
       customerPhone,
+      sendWhatsAppInvoice: !!customerPhone,
+      whatsappInvoiceSent: whatsappInvoiceSent || !!customerPhone,
+      isReady: status === "cancelled" ? false : isReady,
+      readyAt: isReady ? now - Math.max(1, minsAgo - 10) * 60_000 : undefined,
+      whatsappReadySent,
     };
   };
   return [
@@ -397,9 +425,23 @@ export function seedOrders(menu: MenuItem[]): Order[] {
       "paid",
       "Aarav Sharma",
       "9876543210",
+      false, // still preparing!
+      true, // invoice sent
+      false, // ready not sent yet
     ),
-    mk(116, 25, [["boba-creme-brulee", 1], ["classic-dorayaki", 2]], "cash", "paid", "Priya Nair", "9123456789"),
-    mk(115, 40, [["matcha-souffle", 1], ["cold-brew-tonic", 1]], "card"),
+    mk(
+      116,
+      25,
+      [["boba-creme-brulee", 1], ["classic-dorayaki", 2]],
+      "cash",
+      "paid",
+      "Priya Nair",
+      "9123456789",
+      true, // ready
+      true,
+      true, // ready message sent
+    ),
+    mk(115, 40, [["matcha-souffle", 1], ["cold-brew-tonic", 1]], "card", "paid", undefined, undefined, true),
     mk(
       114,
       58,
@@ -408,8 +450,12 @@ export function seedOrders(menu: MenuItem[]): Order[] {
         ["honey-oat-latte", 1],
       ],
       "cash",
+      "paid",
+      undefined,
+      undefined,
+      true,
     ),
-    mk(113, 75, [["classic-dorayaki", 2]], "cash"),
+    mk(113, 75, [["classic-dorayaki", 2]], "cash", "paid", undefined, undefined, true),
     mk(
       112,
       95,
@@ -418,8 +464,12 @@ export function seedOrders(menu: MenuItem[]): Order[] {
         ["iced-matcha", 1],
       ],
       "card",
+      "paid",
+      undefined,
+      undefined,
+      true,
     ),
-    mk(111, 120, [["classic-souffle", 1]], "cash", "cancelled"),
+    mk(111, 120, [["classic-souffle", 1]], "cash", "cancelled", undefined, undefined, false),
     mk(
       110,
       150,
@@ -428,6 +478,10 @@ export function seedOrders(menu: MenuItem[]): Order[] {
         ["iced-latte", 1],
       ],
       "card",
+      "paid",
+      undefined,
+      undefined,
+      true,
     ),
   ];
 }

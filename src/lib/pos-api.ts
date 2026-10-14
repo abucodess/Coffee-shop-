@@ -8,6 +8,8 @@ import {
   DEFAULT_MENU,
   SHOP_INFO,
 } from "./pos-data";
+import { getAllOrderMeta, saveOrderMeta } from "./whatsapp";
+import { saveCustomerRecord } from "./customer-service";
 
 // Category ID mapping helpers (retained for backward compatibility)
 export const CATEGORY_MAP: Record<string, string> = {
@@ -444,11 +446,15 @@ export async function fetchOrders(): Promise<Order[]> {
 
   if (!data) return [];
 
+  const allMeta = getAllOrderMeta();
+
   return data.map((o: any) => {
     const subtotal = Number(o.subtotal);
     const invoiceNum = o.order_number
       ? `FUWA-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
       : undefined;
+
+    const meta = allMeta[o.id] || {};
 
     return {
       id: o.id,
@@ -470,6 +476,11 @@ export async function fetchOrders(): Promise<Order[]> {
       cashier: o.cashier || SHOP_INFO.cashierName,
       customerName: o.customer_name || undefined,
       customerPhone: o.customer_phone || undefined,
+      sendWhatsAppInvoice: meta.sendWhatsAppInvoice ?? Boolean(o.customer_phone),
+      whatsappInvoiceSent: meta.whatsappInvoiceSent ?? Boolean(o.customer_phone),
+      isReady: meta.isReady ?? (o.status === "cancelled" ? false : false),
+      readyAt: meta.readyAt,
+      whatsappReadySent: meta.whatsappReadySent ?? false,
     };
   });
 }
@@ -512,6 +523,7 @@ export async function createOrder(
   cashier: string = "Cashier",
   customerName?: string,
   customerPhone?: string,
+  sendWhatsAppInvoice: boolean = true,
 ): Promise<Order> {
   if (lines.length === 0) {
     throw new Error("Cannot create an empty order");
@@ -534,6 +546,7 @@ export async function createOrder(
 
   const cleanCustomerName = customerName?.trim() || undefined;
   const cleanCustomerPhone = customerPhone?.trim() || undefined;
+  const shouldSendWhatsApp = Boolean(sendWhatsAppInvoice && cleanCustomerPhone);
 
   if (isSupabaseConfigured) {
     // Security check: verify current authenticated user is active
@@ -641,6 +654,21 @@ export async function createOrder(
     qty: l.qty,
   }));
 
+  // Persist order metadata locally
+  saveOrderMeta(orderId, {
+    isReady: false,
+    sendWhatsAppInvoice: shouldSendWhatsApp,
+    whatsappInvoiceSent: shouldSendWhatsApp,
+    whatsappReadySent: false,
+  });
+
+  // Store customer data in database & cache
+  if (cleanCustomerPhone && cleanCustomerName) {
+    saveCustomerRecord(cleanCustomerPhone, cleanCustomerName).catch((err) => {
+      console.warn("Failed to persist customer record:", err);
+    });
+  }
+
   return {
     id: orderId,
     number: orderNumber,
@@ -658,7 +686,38 @@ export async function createOrder(
     cashier: cashier,
     customerName: cleanCustomerName,
     customerPhone: cleanCustomerPhone,
+    sendWhatsAppInvoice: shouldSendWhatsApp,
+    whatsappInvoiceSent: shouldSendWhatsApp,
+    isReady: false,
+    whatsappReadySent: false,
   };
+}
+
+/**
+ * Updates order ready fulfillment status in local cache and optionally in Supabase
+ */
+export async function updateOrderReadyInDb(
+  orderId: string,
+  isReady: boolean,
+): Promise<void> {
+  saveOrderMeta(orderId, {
+    isReady,
+    readyAt: isReady ? Date.now() : undefined,
+  });
+
+  if (!isSupabaseConfigured) return;
+
+  try {
+    await supabase
+      .from("orders")
+      .update({
+        is_ready: isReady,
+        ready_at: isReady ? new Date().toISOString() : null,
+      })
+      .eq("id", orderId);
+  } catch {
+    // Graceful fallback if database table doesn't have custom columns
+  }
 }
 
 /**
@@ -796,6 +855,8 @@ export async function fetchOrdersByRange(
 
   if (!data) return [];
 
+  const allMeta = getAllOrderMeta();
+
   return data.map((rawOrder) => {
     const o = rawOrder as DbOrder & {
       cashier?: string;
@@ -807,6 +868,8 @@ export async function fetchOrdersByRange(
     const invoiceNum = o.order_number
       ? `FUWA-${new Date(o.created_at).getFullYear()}-${o.order_number.replace(/^A-/, "").padStart(3, "0")}`
       : undefined;
+
+    const meta = allMeta[o.id] || {};
 
     return {
       id: o.id,
@@ -828,6 +891,11 @@ export async function fetchOrdersByRange(
       cashier: o.cashier || SHOP_INFO.cashierName,
       customerName: o.customer_name || undefined,
       customerPhone: o.customer_phone || undefined,
+      sendWhatsAppInvoice: meta.sendWhatsAppInvoice ?? Boolean(o.customer_phone),
+      whatsappInvoiceSent: meta.whatsappInvoiceSent ?? Boolean(o.customer_phone),
+      isReady: meta.isReady ?? (o.status === "cancelled" ? false : false),
+      readyAt: meta.readyAt,
+      whatsappReadySent: meta.whatsappReadySent ?? false,
     };
   });
 }

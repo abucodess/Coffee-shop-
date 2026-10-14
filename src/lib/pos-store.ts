@@ -20,7 +20,13 @@ import {
   toggleProductAvailability,
   createOrder as createOrderInDb,
   cancelOrderInDb,
+  updateOrderReadyInDb,
 } from "./pos-api";
+import {
+  simulateSendWhatsAppInvoice,
+  simulateSendWhatsAppReady,
+  saveOrderMeta,
+} from "./whatsapp";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
 export interface PosState {
@@ -330,6 +336,7 @@ export async function completeOrder(
   cashier?: string,
   customerName?: string,
   customerPhone?: string,
+  sendWhatsAppInvoice: boolean = true,
 ): Promise<Order | null> {
   if (state.cart.length === 0 || state.isSubmittingOrder) return null;
 
@@ -352,7 +359,15 @@ export async function completeOrder(
       cashier,
       customerName,
       customerPhone,
+      sendWhatsAppInvoice,
     );
+
+    // If customer phone is provided and whatsapp invoice requested, simulate sending
+    if (sendWhatsAppInvoice && customerPhone && order) {
+      simulateSendWhatsAppInvoice(order).catch((err) => {
+        console.warn("Simulated WhatsApp invoice trigger failed:", err);
+      });
+    }
 
     // Only clear cart and append order upon successful persistence
     setState({
@@ -370,13 +385,113 @@ export async function completeOrder(
   }
 }
 
+export async function markOrderReady(
+  orderId: string,
+  options?: { notifyWhatsApp?: boolean },
+): Promise<void> {
+  const target = state.orders.find((o) => o.id === orderId);
+  const shouldNotify = options?.notifyWhatsApp !== false && Boolean(target?.customerPhone);
+  const now = Date.now();
+
+  // Optimistic update if in state
+  if (target) {
+    setState({
+      orders: state.orders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              isReady: true,
+              readyAt: now,
+              whatsappReadySent: shouldNotify ? true : o.whatsappReadySent,
+            }
+          : o,
+      ),
+    });
+  }
+
+  saveOrderMeta(orderId, {
+    isReady: true,
+    readyAt: now,
+    whatsappReadySent: shouldNotify ? true : target?.whatsappReadySent,
+  });
+
+  if (target && shouldNotify) {
+    simulateSendWhatsAppReady(target).catch((err) => {
+      console.warn("Simulated WhatsApp ready notification failed:", err);
+    });
+  }
+
+  try {
+    await updateOrderReadyInDb(orderId, true);
+  } catch (err) {
+    console.warn("Failed to sync order ready status to database:", err);
+  }
+}
+
+export async function markOrderPreparing(orderId: string): Promise<void> {
+  const target = state.orders.find((o) => o.id === orderId);
+
+  if (target) {
+    setState({
+      orders: state.orders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              isReady: false,
+              readyAt: undefined,
+            }
+          : o,
+      ),
+    });
+  }
+
+  saveOrderMeta(orderId, {
+    isReady: false,
+    readyAt: undefined,
+  });
+
+  try {
+    await updateOrderReadyInDb(orderId, false);
+  } catch (err) {
+    console.warn("Failed to sync order preparing status to database:", err);
+  }
+}
+
+export async function notifyOrderWhatsAppReady(orderId: string): Promise<void> {
+  const order = state.orders.find((o) => o.id === orderId);
+  if (!order || !order.customerPhone) return;
+
+  setState({
+    orders: state.orders.map((o) =>
+      o.id === orderId ? { ...o, whatsappReadySent: true } : o,
+    ),
+  });
+
+  saveOrderMeta(orderId, { whatsappReadySent: true });
+  await simulateSendWhatsAppReady(order);
+}
+
+export async function notifyOrderWhatsAppInvoice(orderId: string): Promise<void> {
+  const order = state.orders.find((o) => o.id === orderId);
+  if (!order || !order.customerPhone) return;
+
+  setState({
+    orders: state.orders.map((o) =>
+      o.id === orderId ? { ...o, whatsappInvoiceSent: true } : o,
+    ),
+  });
+
+  saveOrderMeta(orderId, { whatsappInvoiceSent: true });
+  await simulateSendWhatsAppInvoice(order);
+}
+
 export async function cancelOrder(orderId: string): Promise<void> {
   setState({ actionLoadingId: orderId });
 
   try {
     await cancelOrderInDb(orderId);
     setState({
-      orders: state.orders.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o)),
+      orders: state.orders.map((o) => (o.id === orderId ? { ...o, status: "cancelled", isReady: false } : o)),
       actionLoadingId: null,
     });
   } catch (err) {

@@ -178,3 +178,50 @@ describe("Order Search Filtering by Customer", () => {
     expect(filtered[0]!.customerPhone).toBe("9123456789");
   });
 });
+
+describe("Customer Cache & Autofill Service", () => {
+  it("saves and retrieves customer from local cache instantly with 0ms delay", async () => {
+    const { getCachedCustomerName, saveCustomerRecord, lookupCustomerByPhone } =
+      await import("@/lib/customer-service");
+
+    const testPhone = "9876501234";
+    const testName = "Kenji Takahashi";
+
+    // Initially not in cache
+    expect(getCachedCustomerName(testPhone)).toBeNull();
+
+    // Save record
+    await saveCustomerRecord(testPhone, testName);
+
+    // Instant synchronous cache hit
+    expect(getCachedCustomerName(testPhone)).toBe(testName);
+
+    // Fast lookup returns cached match
+    const lookupResult = await lookupCustomerByPhone(testPhone);
+    expect(lookupResult).toEqual({
+      phone: testPhone,
+      name: testName,
+    });
+  });
+
+  it("handles formatting variations when looking up customer", async () => {
+    const { getCachedCustomerName, saveCustomerRecord } =
+      await import("@/lib/customer-service");
+
+    await saveCustomerRecord("9123409876", "Aoi Tanaka");
+
+    // Lookup with dashes or spaces or +91 prefix
+    expect(getCachedCustomerName("+91 91234-09876")).toBe("Aoi Tanaka");
+    expect(getCachedCustomerName("91234 09876")).toBe("Aoi Tanaka");
+  });
+
+  it("returns null for incomplete phone numbers", async () => {
+    const { getCachedCustomerName, lookupCustomerByPhone } =
+      await import("@/lib/customer-service");
+
+    expect(getCachedCustomerName("91234")).toBeNull();
+    const result = await lookupCustomerByPhone("91234");
+    expect(result).toBeNull();
+  });
+});
+

@@ -117,6 +117,7 @@ export function Header() {
               <Link
                 key={item.to}
                 to={item.to}
+                preload="intent"
                 className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all sm:text-sm ${
                   isActive
                     ? "bg-fuwa-orange text-white shadow-card scale-[1.02]"
@@ -227,6 +228,7 @@ export function Header() {
             <Link
               key={item.to}
               to={item.to}
+              preload="intent"
               className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all min-h-[38px] ${
                 isActive
                   ? "bg-fuwa-orange text-white shadow-card"

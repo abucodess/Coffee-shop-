@@ -6,6 +6,8 @@ import {
   Banknote,
   Check,
   CreditCard,
+  Loader2,
+  MessageCircle,
   Phone,
   QrCode,
   ShoppingCart,
@@ -29,6 +31,7 @@ import {
   setQty,
   usePos,
 } from "@/lib/pos-store";
+import { getCachedCustomerName, lookupCustomerByPhone } from "@/lib/customer-service";
 
 import { ProtectedRoute, useAuth } from "@/auth";
 
@@ -75,6 +78,9 @@ function Billing() {
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [customerName, setCustomerName] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
+  const [isCustomerAutofilled, setIsCustomerAutofilled] = useState<boolean>(false);
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState<boolean>(false);
+  const [sendWhatsAppInvoice, setSendWhatsAppInvoice] = useState<boolean>(true);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<Order | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -133,10 +139,43 @@ function Billing() {
   const handlePhoneChange = (val: string) => {
     const digitsOnly = sanitizePhoneDigits(val);
     setCustomerPhone(digitsOnly);
+
     if (digitsOnly.length > 0 && digitsOnly.length < 10) {
       setPhoneError("Phone number must be exactly 10 digits");
+      if (isCustomerAutofilled) {
+        setCustomerName("");
+        setIsCustomerAutofilled(false);
+      }
     } else {
       setPhoneError(null);
+    }
+
+    if (digitsOnly.length === 10) {
+      // 1. Instant 0ms memory cache lookup
+      const cached = getCachedCustomerName(digitsOnly);
+      if (cached) {
+        setCustomerName(cached);
+        setIsCustomerAutofilled(true);
+      } else {
+        // 2. Fast background lookup in Supabase
+        setIsLookingUpCustomer(true);
+        lookupCustomerByPhone(digitsOnly)
+          .then((record) => {
+            if (record?.name) {
+              setCustomerName(record.name);
+              setIsCustomerAutofilled(true);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            setIsLookingUpCustomer(false);
+          });
+      }
+    } else if (digitsOnly.length === 0) {
+      if (isCustomerAutofilled) {
+        setCustomerName("");
+        setIsCustomerAutofilled(false);
+      }
     }
   };
 
@@ -168,12 +207,21 @@ function Billing() {
         cashierName,
         customerName.trim() || undefined,
         cleanedPhone || undefined,
+        sendWhatsAppInvoice,
       );
       if (order) {
-        toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
+        if (cleanedPhone && sendWhatsAppInvoice) {
+          toast.success(`Order ${order.number} completed — ${fmt(order.total)}`, {
+            description: `WhatsApp digital invoice sent to +91 ${cleanedPhone}`,
+          });
+        } else {
+          toast.success(`Order ${order.number} completed — ${fmt(order.total)}`);
+        }
         setReceipt(order);
         setCustomerName("");
         setCustomerPhone("");
+        setIsCustomerAutofilled(false);
+        setSendWhatsAppInvoice(true);
         setPhoneError(null);
         setCartOpen(false);
       }
@@ -249,7 +297,7 @@ function Billing() {
         })}
       </div>
 
-      {/* Customer Info Section (Optional, with 10-digit phone validation) */}
+      {/* Customer Info Section (Optional, with 10-digit phone validation & WhatsApp digital invoice option) */}
       <div className="border-t-2 border-dashed border-fuwa-brown/15 bg-fuwa-cream/40 px-5 py-3.5">
         <div className="mb-2.5 flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-fuwa-brown/70">
@@ -263,6 +311,8 @@ function Billing() {
               onClick={() => {
                 setCustomerName("");
                 setCustomerPhone("");
+                setIsCustomerAutofilled(false);
+                setSendWhatsAppInvoice(true);
                 setPhoneError(null);
               }}
               className="text-[11px] font-bold text-fuwa-brown/60 hover:text-red-700 transition-colors"
@@ -273,20 +323,7 @@ function Billing() {
         </div>
 
         <div className="space-y-2">
-          {/* Customer Name */}
-          <div className="relative">
-            <User className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-fuwa-brown/50" />
-            <input
-              type="text"
-              id="customer-name-input"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer name"
-              className="w-full rounded-xl border border-fuwa-brown/15 bg-fuwa-surface py-2 pl-9 pr-3 text-xs font-semibold text-fuwa-brown placeholder:text-fuwa-brown/40 shadow-2xs focus:border-fuwa-orange focus:outline-none focus:ring-2 focus:ring-fuwa-orange/20 transition-all"
-            />
-          </div>
-
-          {/* Customer Phone */}
+          {/* Customer Phone (1st: typing phone checks & autofills customer name) */}
           <div>
             <div className="relative">
               <Phone className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-fuwa-brown/50" />
@@ -294,11 +331,13 @@ function Billing() {
                 type="tel"
                 id="customer-phone-input"
                 inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="tel"
                 maxLength={10}
                 value={customerPhone}
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 placeholder="Phone number (10 digits)"
-                className={`w-full rounded-xl border bg-fuwa-surface py-2 pl-9 pr-14 text-xs font-mono font-semibold text-fuwa-brown placeholder:text-fuwa-brown/40 shadow-2xs focus:outline-none transition-all ${
+                className={`w-full rounded-xl border bg-fuwa-surface py-2 pl-9 pr-16 text-xs font-mono font-semibold text-fuwa-brown placeholder:text-fuwa-brown/40 shadow-2xs focus:outline-none transition-all ${
                   phoneError
                     ? "border-red-500 focus:ring-2 focus:ring-red-500/20"
                     : customerPhone.length === 10
@@ -306,8 +345,10 @@ function Billing() {
                       : "border-fuwa-brown/15 focus:border-fuwa-orange focus:ring-2 focus:ring-fuwa-orange/20"
                 }`}
               />
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                {customerPhone.length === 10 ? (
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {isLookingUpCustomer ? (
+                  <Loader2 className="size-3.5 animate-spin text-fuwa-orange" />
+                ) : customerPhone.length === 10 ? (
                   <span className="flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">
                     <Check className="size-3.5 stroke-[2.5]" />
                     <span>10/10</span>
@@ -326,6 +367,81 @@ function Billing() {
                 <span>{phoneError}</span>
               </p>
             )}
+          </div>
+
+          {/* Customer Name */}
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-fuwa-brown/50" />
+            <input
+              type="text"
+              id="customer-name-input"
+              value={customerName}
+              onChange={(e) => {
+                setCustomerName(e.target.value);
+                if (!e.target.value) {
+                  setIsCustomerAutofilled(false);
+                }
+              }}
+              placeholder={isLookingUpCustomer ? "Searching customer..." : "Customer name"}
+              className={`w-full rounded-xl border bg-fuwa-surface py-2 pl-9 pr-24 text-xs font-semibold text-fuwa-brown placeholder:text-fuwa-brown/40 shadow-2xs focus:outline-none transition-all ${
+                isCustomerAutofilled
+                  ? "border-emerald-500/60 bg-emerald-50/40 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                  : "border-fuwa-brown/15 focus:border-fuwa-orange focus:ring-2 focus:ring-fuwa-orange/20"
+              }`}
+            />
+            {isCustomerAutofilled && (
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-md bg-emerald-100/90 px-2 py-0.5 text-[10px] font-black text-emerald-800 shadow-2xs animate-in fade-in zoom-in-95 duration-150">
+                <Sparkles className="size-3 text-emerald-600 fill-emerald-600/30" />
+                <span>Autofilled</span>
+              </div>
+            )}
+          </div>
+
+          {/* WhatsApp Digital Invoice Option */}
+          <div className="pt-1">
+            <label
+              htmlFor="send-whatsapp-invoice-checkbox"
+              className={`flex items-center justify-between gap-2.5 rounded-xl border p-2.5 transition-all cursor-pointer select-none ${
+                sendWhatsAppInvoice && customerPhone.length === 10
+                  ? "border-emerald-500/40 bg-emerald-50/70 text-emerald-950 shadow-2xs"
+                  : "border-fuwa-brown/10 bg-fuwa-surface/70 text-fuwa-brown/80 hover:bg-fuwa-surface"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`grid size-7 shrink-0 place-items-center rounded-lg transition-colors ${
+                    sendWhatsAppInvoice && customerPhone.length === 10
+                      ? "bg-emerald-600 text-white"
+                      : "bg-fuwa-brown/10 text-fuwa-brown/60"
+                  }`}
+                >
+                  <MessageCircle className="size-4 fill-current" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs font-black">
+                    <span>Send invoice to WhatsApp</span>
+                    {customerPhone.length === 10 && (
+                      <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 font-mono text-[10px] font-bold text-emerald-700">
+                        +91 {customerPhone}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] font-medium text-fuwa-brown/60 truncate">
+                    {customerPhone.length === 10
+                      ? "Digital bill will be sent automatically"
+                      : "Enter 10-digit number to receive digital invoice"}
+                  </div>
+                </div>
+              </div>
+
+              <input
+                type="checkbox"
+                id="send-whatsapp-invoice-checkbox"
+                checked={sendWhatsAppInvoice}
+                onChange={(e) => setSendWhatsAppInvoice(e.target.checked)}
+                className="size-4 shrink-0 rounded border-fuwa-brown/30 accent-emerald-600 focus:ring-emerald-500"
+              />
+            </label>
           </div>
         </div>
       </div>
@@ -382,6 +498,8 @@ function Billing() {
             clearCart();
             setCustomerName("");
             setCustomerPhone("");
+            setIsCustomerAutofilled(false);
+            setSendWhatsAppInvoice(true);
             setPhoneError(null);
             toast("Order cleared");
           }}

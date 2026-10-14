@@ -396,6 +396,37 @@ create policy "Allow authenticated insert order_items"
   with check (public.is_active_user());
 
 -- ============================================================
+-- 6b. CUSTOMERS TABLE (Customer Autofill & History)
+-- ============================================================
+create table if not exists public.customers (
+  phone text primary key,
+  name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_customers_phone on public.customers(phone);
+create index if not exists idx_customers_updated_at on public.customers(updated_at desc);
+
+alter table public.customers enable row level security;
+
+create policy "Allow authenticated read customers"
+  on public.customers for select
+  to authenticated
+  using (public.is_active_user());
+
+create policy "Allow authenticated insert customers"
+  on public.customers for insert
+  to authenticated
+  with check (public.is_active_user());
+
+create policy "Allow authenticated update customers"
+  on public.customers for update
+  to authenticated
+  using (public.is_active_user())
+  with check (public.is_active_user());
+
+-- ============================================================
 -- 7. Supabase Realtime Publication
 -- ============================================================
 -- Enables live synchronization so menu, order, and staff status
@@ -404,6 +435,7 @@ alter publication supabase_realtime add table public.categories;
 alter publication supabase_realtime add table public.products;
 alter publication supabase_realtime add table public.orders;
 alter publication supabase_realtime add table public.profiles;
+alter publication supabase_realtime add table public.customers;
 
 -- ============================================================
 -- INITIAL ADMIN SETUP INSTRUCTIONS
